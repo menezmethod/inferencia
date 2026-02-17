@@ -283,7 +283,7 @@ inferencia/
 ├── keys.example.txt
 ├── Dockerfile                   # Multi-stage, non-root, healthcheck (Coolify-ready)
 ├── .dockerignore
-├── docker-compose.yml           # Local run with .env
+├── docker-compose.yaml         # Compose for Coolify + local (Coolify expects .yaml)
 ├── .env.example                 # Env template (copy to .env; never commit .env)
 ├── Makefile
 └── README.md
