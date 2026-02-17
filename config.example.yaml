@@ -1,0 +1,33 @@
+# inferencia — configuration
+#
+# Copy this file to config.yaml and adjust as needed.
+# Environment variables (INFERENCIA_*) override file values.
+
+server:
+  host: "127.0.0.1"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 120s   # Long timeout for streaming responses.
+
+auth:
+  keys_file: "./keys.txt" # One API key per line. Lines starting with # are ignored.
+
+backends:
+  - name: "mlx"
+    type: "mlx"
+    url: "http://localhost:11973"
+    timeout: 60s
+
+  # Uncomment to add Ollama (not yet implemented in v1):
+  # - name: "ollama"
+  #   type: "ollama"
+  #   url: "http://localhost:11434"
+  #   timeout: 60s
+
+ratelimit:
+  requests_per_second: 10
+  burst: 20
+
+log:
+  level: "info"    # debug | info | warn | error
+  format: "json"   # json | text

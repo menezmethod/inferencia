@@ -1,0 +1,26 @@
+# Git and IDE
+.git
+.gitignore
+.idea
+.vscode
+*.swp
+*~
+
+# Local config and secrets (never in image)
+config.yaml
+keys.txt
+keys.example.txt
+*.txt
+
+# Build artifacts
+inferencia
+/bin/
+
+# Docs and dev (optional: include if you want)
+.cursor
+*.md
+!README.md
+
+# OS
+.DS_Store
+Thumbs.db

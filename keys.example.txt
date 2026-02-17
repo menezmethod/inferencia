@@ -1,0 +1,6 @@
+# inferencia API keys — one per line
+# Lines starting with # are comments.
+# Generate keys with: openssl rand -hex 32
+#
+# Example:
+sk-inferencia-dev-key-change-me

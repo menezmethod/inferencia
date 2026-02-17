@@ -1,0 +1,17 @@
+# Binary
+inferencia
+/bin/
+
+# Config with secrets
+config.yaml
+keys.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
