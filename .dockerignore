@@ -11,6 +11,8 @@ config.yaml
 keys.txt
 keys.example.txt
 *.txt
+.env
+.env.*
 
 # Build artifacts
 inferencia

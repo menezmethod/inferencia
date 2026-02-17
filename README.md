@@ -219,7 +219,7 @@ Run inferencia on a host that can reach your MLX server over the LAN (e.g. Pi at
 
 2. **In Coolify**: New resource → Application → GitHub → select repo. Build: **Dockerfile** (root). No need to mount config or keys if you use env vars.
 
-3. **Environment variables** (required; no config file in the image):
+3. **Environment variables** (required; no config file in the image). Copy from [env.coolify.example](env.coolify.example), replace `YOUR_M4_LAN_IP` and `sk-PASTE_YOUR_KEY_HERE`, then paste into Coolify’s env editor:
 
    | Variable | Example | Purpose |
    |----------|---------|--------|
@@ -233,6 +233,14 @@ Run inferencia on a host that can reach your MLX server over the LAN (e.g. Pi at
 5. **Test**: After deploy, `curl https://llm.menezmethod.com/health` and `curl -H "Authorization: Bearer sk-your-secret-key" https://llm.menezmethod.com/v1/models`.
 
 If `/health/ready` fails, the container cannot reach the MLX host at `INFERENCIA_BACKEND_URL`; check LAN connectivity and that the M4 is on and MLX is listening on 11973.
+
+### Production checklist
+
+- [ ] **API key**: Use a strong key (e.g. `openssl rand -hex 32`, prefix with `sk-`). Set in Coolify as `INFERENCIA_API_KEYS` only; never commit keys.
+- [ ] **Backend URL**: Use your M4’s **fixed LAN IP** (DHCP reservation) in `INFERENCIA_BACKEND_URL`.
+- [ ] **HTTPS**: Coolify provides TLS and tunnel; ensure the public URL uses `https://`.
+- [ ] **Rate limit**: Defaults (10 req/s, burst 20) are in config; override with `INFERENCIA_RATELIMIT_RPS` / `INFERENCIA_RATELIMIT_BURST` if needed.
+- [ ] **Logs**: Set `INFERENCIA_LOG_LEVEL=info` (or `debug` only when troubleshooting).
 
 ## Architecture
 
@@ -273,8 +281,10 @@ inferencia/
 │   └── apierror/error.go       # OpenAI-compatible error responses
 ├── config.example.yaml
 ├── keys.example.txt
-├── Dockerfile                   # For Coolify/Docker (env-only config)
+├── Dockerfile                   # Multi-stage, non-root, healthcheck (Coolify-ready)
 ├── .dockerignore
+├── docker-compose.yml           # Local run with .env
+├── .env.example                 # Env template (copy to .env; never commit .env)
 ├── Makefile
 └── README.md
 ```
@@ -290,6 +300,34 @@ make vet      # Run go vet
 make lint     # Run golangci-lint
 make clean    # Remove binary
 ```
+
+## Docker (local or Coolify)
+
+The image is **Coolify-ready**: multi-stage build, non-root user (UID 1000), healthcheck, no config or secrets in the image (env only).
+
+**Build and run with env vars:**
+
+```bash
+docker build -t inferencia:latest .
+docker run --rm -p 8080:8080 \
+  -e INFERENCIA_HOST=0.0.0.0 \
+  -e INFERENCIA_PORT=8080 \
+  -e INFERENCIA_BACKEND_URL=http://host.docker.internal:11973 \
+  -e INFERENCIA_API_KEYS=sk-your-key \
+  inferencia:latest
+```
+
+**Or use Docker Compose (copy env first):**
+
+```bash
+cp .env.example .env
+# Edit .env with your INFERENCIA_BACKEND_URL and INFERENCIA_API_KEYS
+docker compose up --build
+```
+
+Then: `curl http://localhost:8080/health` and `curl -H "Authorization: Bearer sk-your-key" http://localhost:8080/v1/models`.
+
+For **Coolify**, see [Deploy on Coolify](#deploy-on-coolify-eg-raspberry-pi--mlx-on-m4) above: connect repo, build Dockerfile, set the same env vars in the Coolify UI.
 
 ## License
 

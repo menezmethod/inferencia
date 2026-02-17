@@ -1,0 +1,21 @@
+# Local run (Coolify-like): build and run with env file.
+# Usage: cp .env.example .env && docker compose up --build
+
+services:
+  inferencia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: inferencia:latest
+    container_name: inferencia
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3

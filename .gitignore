@@ -2,9 +2,11 @@
 inferencia
 /bin/
 
-# Config with secrets
+# Config and secrets
 config.yaml
 keys.txt
+.env
+.env.local
 
 # IDE
 .idea/
