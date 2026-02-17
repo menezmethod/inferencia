@@ -1,5 +1,6 @@
-# Local run (Coolify-like): build and run with env file.
-# Usage: cp .env.example .env && docker compose up --build
+# inferencia — Docker Compose for Coolify deployment.
+# Required vars (`:?`) show up in Coolify UI with red border until set.
+# For local dev: cp .env.example .env && docker compose up --build
 
 services:
   inferencia:
@@ -8,8 +9,15 @@ services:
       dockerfile: Dockerfile
     image: inferencia:latest
     container_name: inferencia
-    env_file:
-      - .env
+    environment:
+      - INFERENCIA_HOST=0.0.0.0
+      - INFERENCIA_PORT=8080
+      - INFERENCIA_BACKEND_URL=${INFERENCIA_BACKEND_URL:?}
+      - INFERENCIA_API_KEYS=${INFERENCIA_API_KEYS:?}
+      - INFERENCIA_LOG_LEVEL=${INFERENCIA_LOG_LEVEL:-info}
+      - INFERENCIA_LOG_FORMAT=${INFERENCIA_LOG_FORMAT:-json}
+      - INFERENCIA_RATELIMIT_RPS=${INFERENCIA_RATELIMIT_RPS:-10}
+      - INFERENCIA_RATELIMIT_BURST=${INFERENCIA_RATELIMIT_BURST:-20}
     ports:
       - "8080:8080"
     restart: unless-stopped
