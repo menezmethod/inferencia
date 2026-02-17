@@ -8,9 +8,11 @@ keys.txt
 .env
 .env.local
 
-# IDE
+# IDE / editor
 .idea/
 .vscode/
+.claude/
+.cursor/
 *.swp
 *~
 

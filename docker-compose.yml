@@ -1,6 +1,6 @@
-# inferencia — Docker Compose for Coolify deployment.
-# Required vars (`:?`) show up in Coolify UI with red border until set.
-# For local dev: cp .env.example .env && docker compose up --build
+# inferencia — Docker Compose for Coolify
+# Required vars (INFERENCIA_BACKEND_URL, INFERENCIA_API_KEYS) show in Coolify UI until set.
+# Local: cp .env.example .env && docker compose up --build
 
 services:
   inferencia:
@@ -8,19 +8,18 @@ services:
       context: .
       dockerfile: Dockerfile
     image: inferencia:latest
-    container_name: inferencia
-    environment:
-      - INFERENCIA_HOST=0.0.0.0
-      - INFERENCIA_PORT=8080
-      - INFERENCIA_BACKEND_URL=${INFERENCIA_BACKEND_URL:?}
-      - INFERENCIA_API_KEYS=${INFERENCIA_API_KEYS:?}
-      - INFERENCIA_LOG_LEVEL=${INFERENCIA_LOG_LEVEL:-info}
-      - INFERENCIA_LOG_FORMAT=${INFERENCIA_LOG_FORMAT:-json}
-      - INFERENCIA_RATELIMIT_RPS=${INFERENCIA_RATELIMIT_RPS:-10}
-      - INFERENCIA_RATELIMIT_BURST=${INFERENCIA_RATELIMIT_BURST:-20}
     ports:
       - "8080:8080"
     restart: unless-stopped
+    environment:
+      INFERENCIA_HOST: ${INFERENCIA_HOST:-0.0.0.0}
+      INFERENCIA_PORT: ${INFERENCIA_PORT:-8080}
+      INFERENCIA_BACKEND_URL: ${INFERENCIA_BACKEND_URL:?Set in Coolify or .env}
+      INFERENCIA_API_KEYS: ${INFERENCIA_API_KEYS:?Set in Coolify or .env}
+      INFERENCIA_LOG_LEVEL: ${INFERENCIA_LOG_LEVEL:-info}
+      INFERENCIA_LOG_FORMAT: ${INFERENCIA_LOG_FORMAT:-json}
+      INFERENCIA_RATELIMIT_RPS: ${INFERENCIA_RATELIMIT_RPS:-10}
+      INFERENCIA_RATELIMIT_BURST: ${INFERENCIA_RATELIMIT_BURST:-20}
     healthcheck:
       test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/health"]
       interval: 30s
