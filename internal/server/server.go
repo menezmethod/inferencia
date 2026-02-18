@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/menez/inferencia/internal/auth"
 	"github.com/menez/inferencia/internal/backend"
 	"github.com/menez/inferencia/internal/config"
@@ -22,17 +24,19 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *sl
 	protected := func(h http.Handler) http.Handler {
 		return middleware.Chain(h,
 			middleware.Recover(logger),
+			middleware.Metrics(),
 			middleware.Logging(logger),
 			middleware.Auth(ks),
 			middleware.RateLimit(rl),
 		)
 	}
 
-	// Health and docs — no auth required.
+	// Health, docs, and metrics — no auth required.
 	mux.HandleFunc("GET /health", handler.Health())
 	mux.HandleFunc("GET /health/ready", handler.Ready(reg))
 	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPI())
 	mux.HandleFunc("GET /docs", handler.SwaggerUI())
+	mux.Handle("GET /metrics", promhttp.Handler())
 
 	// OpenAI-compatible API endpoints — auth + rate limiting required.
 	mux.Handle("POST /v1/chat/completions", protected(handler.ChatCompletions(reg, logger)))

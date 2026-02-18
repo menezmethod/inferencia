@@ -34,8 +34,26 @@ tags:
     description: List available models from the inference backend.
   - name: Embeddings
     description: Generate vector embeddings for text input.
+  - name: Observability
+    description: Prometheus metrics endpoint (no authentication required).
 
 paths:
+  /metrics:
+    get:
+      operationId: prometheusMetrics
+      tags: [Observability]
+      summary: Prometheus metrics
+      description: |
+        Returns all application metrics in Prometheus exposition format.
+        No authentication required. Intended for Prometheus scraping.
+      responses:
+        "200":
+          description: Prometheus metrics in text exposition format.
+          content:
+            text/plain:
+              schema:
+                type: string
+
   /health:
     get:
       operationId: healthLiveness

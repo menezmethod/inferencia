@@ -38,6 +38,19 @@ Default: 10 requests/second, burst of 20.
 
 ## Endpoints
 
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/health` | GET | No | Liveness probe |
+| `/health/ready` | GET | No | Readiness (backend connectivity) |
+| `/metrics` | GET | No | Prometheus metrics |
+| `/docs` | GET | No | Swagger UI |
+| `/openapi.yaml` | GET | No | OpenAPI 3.1 spec |
+| `/v1/models` | GET | Bearer | List available models |
+| `/v1/chat/completions` | POST | Bearer | Chat completions (streaming, tool calling) |
+| `/v1/embeddings` | POST | Bearer | Generate embeddings |
+
+---
+
 ### GET /v1/models
 
 Returns available models from the inference backend.

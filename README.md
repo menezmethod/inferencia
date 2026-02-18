@@ -248,6 +248,49 @@ If `/health/ready` fails, the container cannot reach the MLX host at `INFERENCIA
 - **OpenAPI spec**: [https://llm.menezmethod.com/openapi.yaml](https://llm.menezmethod.com/openapi.yaml)
 - **Quickstart guide**: [docs/AGENT_ONBOARDING.md](docs/AGENT_ONBOARDING.md) — how to connect any OpenAI-compatible client (Python, Node.js, curl, LangChain, etc.) to inferencia.
 
+## Observability
+
+inferencia exposes Prometheus metrics at `/metrics` (no auth). Use the bundled observability stack for dashboards and alerting.
+
+### Metrics
+
+| Metric | Type | Description |
+|--------|------|-------------|
+| `inferencia_http_requests_total` | Counter | Total requests by method, path, status |
+| `inferencia_http_request_duration_seconds` | Histogram | Request latency (14 buckets, 5ms–120s) |
+| `inferencia_http_requests_in_flight` | Gauge | Active requests |
+| `inferencia_tokens_total` | Counter | Tokens by model and type (prompt/completion) |
+| `inferencia_backend_healthy` | Gauge | Backend health (1=up, 0=down) |
+| `inferencia_ratelimit_rejections_total` | Counter | Rate-limited requests |
+| `inferencia_backend_request_duration_seconds` | Histogram | Backend latency |
+
+### Quick start (Prometheus + Grafana + Alertmanager)
+
+```bash
+docker compose -f deploy/docker-compose.observability.yaml up -d
+```
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3000 | admin / admin |
+| Alertmanager | http://localhost:9093 | — |
+
+Grafana auto-provisions a Prometheus datasource and an **inferencia** dashboard with request rates, latency percentiles, token throughput, backend health, error rates, and rate-limit rejections.
+
+### Alert rules
+
+| Alert | Condition | Severity |
+|-------|-----------|----------|
+| HighErrorRate | >5% of requests returning 5xx for 2min | critical |
+| BackendDown | Backend health gauge = 0 for 1min | critical |
+| RateLimitSpike | >10 rejections/sec for 2min | warning |
+| HighLatency | p99 chat latency >30s for 5min | warning |
+| NoTraffic | Zero requests for 10min | warning |
+| HighTokenBurnRate | >100k tokens/min for 5min | warning |
+
+Edit `deploy/alertmanager/alertmanager.yaml` to route alerts to Slack, email, PagerDuty, etc.
+
 ## Architecture
 
 ```
@@ -256,6 +299,7 @@ Internet → Cloudflare Tunnel → inferencia (:8080)
                               ┌──────┴──────┐
                               │  Middleware  │
                               │  recover →   │
+                              │  metrics →   │
                               │  logging →   │
                               │  auth →      │
                               │  ratelimit   │
@@ -277,6 +321,11 @@ Internet → Cloudflare Tunnel → inferencia (:8080)
 ```
 inferencia/
 ├── cmd/inferencia/main.go       # Entry point, wiring, graceful shutdown
+├── deploy/                      # Observability stack (Prometheus, Grafana, Alertmanager)
+│   ├── docker-compose.observability.yaml
+│   ├── prometheus/              # Scrape config + alert rules
+│   ├── grafana/                 # Dashboards + datasource provisioning
+│   └── alertmanager/            # Alertmanager config (Slack, email, etc.)
 ├── docs/
 │   ├── AGENT_ONBOARDING.md     # API quickstart guide for clients and agents
 │   └── openapi.yaml            # OpenAPI 3.1 spec (reference copy)
@@ -284,7 +333,7 @@ inferencia/
 │   ├── config/config.go         # YAML + env configuration
 │   ├── server/server.go         # HTTP server & route registration
 │   ├── handler/                 # HTTP handlers (chat, models, embeddings, health, docs)
-│   ├── middleware/               # Auth, rate limiting, logging, recovery
+│   ├── middleware/               # Auth, rate limiting, logging, recovery, metrics
 │   ├── backend/                  # Backend interface, MLX adapter, Ollama stub
 │   ├── auth/keystore.go         # API key storage & validation
 │   ├── apierror/error.go       # OpenAI-compatible error responses

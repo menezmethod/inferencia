@@ -49,6 +49,7 @@ func RateLimit(rl *RateLimiter) Middleware {
 
 			remaining, ok := rl.Allow(key)
 			if !ok {
+				RateLimitRejections.Inc()
 				w.Header().Set("X-RateLimit-Limit", strconv.Itoa(rl.burst))
 				w.Header().Set("X-RateLimit-Remaining", "0")
 				w.Header().Set("Retry-After", "1")

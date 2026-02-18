@@ -1,0 +1,70 @@
+groups:
+  - name: inferencia
+    rules:
+      # High error rate: >5% of requests returning 5xx over 5 minutes.
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(inferencia_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(inferencia_http_requests_total[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate on inferencia"
+          description: "{{ $value | humanizePercentage }} of requests are returning 5xx errors."
+
+      # Backend down: health gauge reports 0 for more than 1 minute.
+      - alert: BackendDown
+        expr: inferencia_backend_healthy == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend {{ $labels.backend }} is down"
+          description: "The {{ $labels.backend }} backend has been unreachable for over 1 minute."
+
+      # Rate limit spike: >10 rejections per second over 2 minutes.
+      - alert: RateLimitSpike
+        expr: rate(inferencia_ratelimit_rejections_total[2m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rate limit rejections are spiking"
+          description: "{{ $value | humanize }} rejections/sec — possible abuse or misconfigured client."
+
+      # High latency: p99 chat completion latency >30s for 5 minutes.
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(inferencia_http_request_duration_seconds_bucket{path="/v1/chat/completions"}[5m])) by (le)
+          ) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p99 latency on chat completions"
+          description: "p99 latency is {{ $value | humanizeDuration }}."
+
+      # No requests: zero traffic for 10 minutes (possible outage).
+      - alert: NoTraffic
+        expr: sum(rate(inferencia_http_requests_total[10m])) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No traffic to inferencia"
+          description: "inferencia has received zero requests in the last 10 minutes."
+
+      # High token burn rate: >100k tokens/min sustained for 5 minutes.
+      - alert: HighTokenBurnRate
+        expr: sum(rate(inferencia_tokens_total[5m])) * 60 > 100000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High token consumption"
+          description: "{{ $value | humanize }} tokens/min — verify this is expected."

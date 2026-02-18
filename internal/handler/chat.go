@@ -8,6 +8,7 @@ import (
 
 	"github.com/menez/inferencia/internal/apierror"
 	"github.com/menez/inferencia/internal/backend"
+	"github.com/menez/inferencia/internal/middleware"
 )
 
 // ChatCompletions handles chat completion requests, supporting both
@@ -49,6 +50,11 @@ func handleJSON(w http.ResponseWriter, r *http.Request, b backend.Backend, req b
 		logger.Error("chat completion failed", "backend", b.Name(), "err", err)
 		apierror.Write(w, apierror.BackendUnavailable(b.Name()))
 		return
+	}
+
+	if resp.Usage != nil {
+		middleware.TokensTotal.WithLabelValues(resp.Model, "prompt").Add(float64(resp.Usage.PromptTokens))
+		middleware.TokensTotal.WithLabelValues(resp.Model, "completion").Add(float64(resp.Usage.CompletionTokens))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

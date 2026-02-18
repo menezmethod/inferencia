@@ -1,0 +1,235 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(inferencia_http_requests_total[5m]))",
+          "legendFormat": "Total req/s"
+        },
+        {
+          "expr": "sum(rate(inferencia_http_requests_total{status=~\"5..\"}[5m]))",
+          "legendFormat": "5xx/s"
+        },
+        {
+          "expr": "sum(rate(inferencia_http_requests_total{status=~\"4..\"}[5m]))",
+          "legendFormat": "4xx/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true }
+        }
+      }
+    },
+    {
+      "title": "Latency (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(inferencia_http_request_duration_seconds_bucket{path=\"/v1/chat/completions\"}[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(inferencia_http_request_duration_seconds_bucket{path=\"/v1/chat/completions\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(inferencia_http_request_duration_seconds_bucket{path=\"/v1/chat/completions\"}[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true }
+        }
+      }
+    },
+    {
+      "title": "Requests In Flight",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 4, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "inferencia_http_requests_in_flight",
+          "legendFormat": "In flight"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 20 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Backend Health",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 4, "x": 20, "y": 0 },
+      "targets": [
+        {
+          "expr": "inferencia_backend_healthy",
+          "legendFormat": "{{ backend }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ],
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Token Throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(inferencia_tokens_total{type=\"prompt\"}[5m])) * 60",
+          "legendFormat": "Prompt tokens/min"
+        },
+        {
+          "expr": "sum(rate(inferencia_tokens_total{type=\"completion\"}[5m])) * 60",
+          "legendFormat": "Completion tokens/min"
+        },
+        {
+          "expr": "sum(rate(inferencia_tokens_total[5m])) * 60",
+          "legendFormat": "Total tokens/min"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true }
+        }
+      }
+    },
+    {
+      "title": "Rate Limit Rejections",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "rate(inferencia_ratelimit_rejections_total[5m])",
+          "legendFormat": "Rejections/s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "bars", "fillOpacity": 50, "spanNulls": true },
+          "color": { "mode": "fixed", "fixedColor": "orange" }
+        }
+      }
+    },
+    {
+      "title": "Request Rate by Endpoint",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(inferencia_http_requests_total[5m])) by (path)",
+          "legendFormat": "{{ path }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true }
+        }
+      }
+    },
+    {
+      "title": "Error Rate %",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(inferencia_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(inferencia_http_requests_total[5m])) * 100",
+          "legendFormat": "Error %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Latency by Endpoint (p95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 16 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(inferencia_http_request_duration_seconds_bucket[5m])) by (le, path))",
+          "legendFormat": "{{ path }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true }
+        }
+      }
+    },
+    {
+      "title": "Tokens by Model",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum(rate(inferencia_tokens_total[5m])) by (model) * 60",
+          "legendFormat": "{{ model }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "spanNulls": true }
+        }
+      }
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["inferencia", "llm", "api"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "inferencia",
+  "uid": "inferencia-overview",
+  "version": 1
+}

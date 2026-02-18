@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/menez/inferencia/internal/backend"
+	"github.com/menez/inferencia/internal/middleware"
 )
 
 // Health handles liveness checks. It always returns 200 if the server is running.
@@ -27,6 +28,7 @@ func Ready(reg *backend.Registry) http.HandlerFunc {
 
 		for _, b := range reg.All() {
 			if err := b.Health(r.Context()); err != nil {
+				middleware.BackendHealth.WithLabelValues(b.Name()).Set(0)
 				w.WriteHeader(http.StatusServiceUnavailable)
 				json.NewEncoder(w).Encode(map[string]string{
 					"status":  "unavailable",
@@ -35,6 +37,7 @@ func Ready(reg *backend.Registry) http.HandlerFunc {
 				})
 				return
 			}
+			middleware.BackendHealth.WithLabelValues(b.Name()).Set(1)
 		}
 
 		json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
