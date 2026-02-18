@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/menez/inferencia/internal/openapi"
+	"github.com/menezmethod/inferencia/internal/openapi"
 )
 
 // OpenAPI serves the OpenAPI specification (YAML).

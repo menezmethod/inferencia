@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/menez/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/backend"
 )
 
 func TestModels(t *testing.T) {

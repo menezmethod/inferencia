@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/menez/inferencia/internal/apierror"
+	"github.com/menezmethod/inferencia/internal/apierror"
 )
 
 // RateLimiter implements a per-key token bucket rate limiter.

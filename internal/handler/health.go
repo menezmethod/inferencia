@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/menez/inferencia/internal/backend"
-	"github.com/menez/inferencia/internal/middleware"
+	"github.com/menezmethod/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/middleware"
 )
 
 // Health handles liveness checks. It always returns 200 if the server is running.

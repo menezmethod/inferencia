@@ -1,4 +1,4 @@
-module github.com/menez/inferencia
+module github.com/menezmethod/inferencia
 
 go 1.23.0
 

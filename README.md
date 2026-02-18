@@ -23,7 +23,7 @@ Cloud inference is expensive. If you have capable hardware (M4 Pro, 128GB), you 
 
 ```bash
 # Clone and build
-git clone https://github.com/menez/inferencia.git
+git clone https://github.com/menezmethod/inferencia.git
 cd inferencia
 cp config.example.yaml config.yaml
 cp keys.example.txt keys.txt

@@ -8,11 +8,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/menez/inferencia/internal/auth"
-	"github.com/menez/inferencia/internal/backend"
-	"github.com/menez/inferencia/internal/config"
-	"github.com/menez/inferencia/internal/handler"
-	"github.com/menez/inferencia/internal/middleware"
+	"github.com/menezmethod/inferencia/internal/auth"
+	"github.com/menezmethod/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/config"
+	"github.com/menezmethod/inferencia/internal/handler"
+	"github.com/menezmethod/inferencia/internal/middleware"
 )
 
 // New creates a configured *http.Server with all routes and middleware wired.

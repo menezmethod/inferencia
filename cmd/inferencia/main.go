@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/menez/inferencia/internal/auth"
-	"github.com/menez/inferencia/internal/backend"
-	"github.com/menez/inferencia/internal/config"
-	"github.com/menez/inferencia/internal/server"
+	"github.com/menezmethod/inferencia/internal/auth"
+	"github.com/menezmethod/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/config"
+	"github.com/menezmethod/inferencia/internal/server"
 )
 
 func main() {

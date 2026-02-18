@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/menez/inferencia/internal/apierror"
-	"github.com/menez/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/apierror"
+	"github.com/menezmethod/inferencia/internal/backend"
 )
 
 // Embeddings handles embedding creation requests.

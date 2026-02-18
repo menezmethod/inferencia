@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/menez/inferencia/internal/auth"
+	"github.com/menezmethod/inferencia/internal/auth"
 )
 
 func newTestKeyStore(t *testing.T, keys ...string) *auth.KeyStore {

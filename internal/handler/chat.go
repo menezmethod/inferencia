@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/menez/inferencia/internal/apierror"
-	"github.com/menez/inferencia/internal/backend"
-	"github.com/menez/inferencia/internal/middleware"
+	"github.com/menezmethod/inferencia/internal/apierror"
+	"github.com/menezmethod/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/middleware"
 )
 
 // ChatCompletions handles chat completion requests, supporting both

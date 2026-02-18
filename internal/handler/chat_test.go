@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/menez/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/backend"
 )
 
 // mockBackend implements backend.Backend for testing.

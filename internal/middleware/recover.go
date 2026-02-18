@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/menez/inferencia/internal/apierror"
+	"github.com/menezmethod/inferencia/internal/apierror"
 )
 
 // Recover returns middleware that catches panics, logs the stack trace,
