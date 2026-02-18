@@ -21,8 +21,11 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *sl
 	rl := middleware.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
 
 	// Middleware stack applied to authenticated API routes.
+	// Order (outermost → innermost): RequestID → Recover → Metrics → Logging → Auth → RateLimit
+	// Logging runs after Auth so the canonical log line includes the masked API key.
 	protected := func(h http.Handler) http.Handler {
 		return middleware.Chain(h,
+			middleware.RequestID(),
 			middleware.Recover(logger),
 			middleware.Metrics(),
 			middleware.Logging(logger),

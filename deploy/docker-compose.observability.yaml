@@ -1,4 +1,4 @@
-# Observability stack for inferencia: Prometheus + Grafana + Alertmanager
+# Observability stack for inferencia: Prometheus + Grafana + Alertmanager + Loki + Promtail
 #
 # Usage:
 #   docker compose -f deploy/docker-compose.observability.yaml up -d
@@ -7,9 +7,10 @@
 #   Prometheus:   http://localhost:9090
 #   Grafana:      http://localhost:3000  (admin / admin)
 #   Alertmanager: http://localhost:9093
+#   Loki:         http://localhost:3100  (internal, queried via Grafana)
 #
 # Expects inferencia running on localhost:8080 (or adjust targets in prometheus.yaml).
-# For Docker-to-Docker networking, use the main docker-compose.yaml with --network.
+# Promtail scrapes Docker container logs automatically.
 
 services:
   prometheus:
@@ -26,6 +27,29 @@ services:
       - --storage.tsdb.retention.time=30d
       - --web.enable-lifecycle
 
+  loki:
+    image: grafana/loki:3.4.2
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command:
+      - -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:3.4.2
+    restart: unless-stopped
+    volumes:
+      - ./promtail/promtail.yaml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
   grafana:
     image: grafana/grafana:11.5.2
     restart: unless-stopped
@@ -41,6 +65,7 @@ services:
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
+      - loki
 
   alertmanager:
     image: prom/alertmanager:v0.28.1
@@ -55,3 +80,4 @@ services:
 volumes:
   prometheus-data:
   grafana-data:
+  loki-data:

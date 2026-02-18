@@ -250,7 +250,41 @@ If `/health/ready` fails, the container cannot reach the MLX host at `INFERENCIA
 
 ## Observability
 
-inferencia exposes Prometheus metrics at `/metrics` (no auth). Use the bundled observability stack for dashboards and alerting.
+inferencia ships with structured logging, Prometheus metrics, and a full Grafana/Loki/Alertmanager stack.
+
+### Canonical log lines
+
+Every request produces a single structured JSON log line (Stripe-style "canonical log line") with all fields needed for debugging, alerting, and analytics:
+
+```json
+{
+  "level": "INFO",
+  "msg": "request",
+  "request_id": "a1b2c3d4e5f6...",
+  "method": "POST",
+  "path": "/v1/chat/completions",
+  "status": 200,
+  "duration_ms": 1423,
+  "bytes": 512,
+  "remote_addr": "192.168.0.60:41234",
+  "user_agent": "OpenAI/Python 1.0.0",
+  "api_key": "...bd09b03"
+}
+```
+
+- **Request ID**: Auto-generated 16-byte hex ID per request. Pass `X-Request-ID` header to propagate your own (for distributed tracing). Echoed back in the response.
+- **API key**: Masked to last 8 chars (safe to log, sufficient to identify the caller).
+- **Log level**: `INFO` for 2xx/3xx, `WARN` for 4xx, `ERROR` for 5xx.
+
+### Loki integration
+
+Logs are Loki-native when running in JSON format (default). Query in Grafana:
+
+```logql
+{service="inferencia"} | json | status >= 500
+{service="inferencia"} | json | path="/v1/chat/completions" | duration_ms > 5000
+{service="inferencia"} | json | api_key="...bd09b03"
+```
 
 ### Metrics
 
@@ -264,7 +298,7 @@ inferencia exposes Prometheus metrics at `/metrics` (no auth). Use the bundled o
 | `inferencia_ratelimit_rejections_total` | Counter | Rate-limited requests |
 | `inferencia_backend_request_duration_seconds` | Histogram | Backend latency |
 
-### Quick start (Prometheus + Grafana + Alertmanager)
+### Quick start (full stack)
 
 ```bash
 docker compose -f deploy/docker-compose.observability.yaml up -d
@@ -275,8 +309,9 @@ docker compose -f deploy/docker-compose.observability.yaml up -d
 | Prometheus | http://localhost:9090 | — |
 | Grafana | http://localhost:3000 | admin / admin |
 | Alertmanager | http://localhost:9093 | — |
+| Loki | http://localhost:3100 | — (queried via Grafana) |
 
-Grafana auto-provisions a Prometheus datasource and an **inferencia** dashboard with request rates, latency percentiles, token throughput, backend health, error rates, and rate-limit rejections.
+Grafana auto-provisions both **Prometheus** and **Loki** datasources, plus an **inferencia** dashboard with request rates, latency percentiles, token throughput, backend health, error rates, and rate-limit rejections.
 
 ### Alert rules
 
@@ -298,6 +333,7 @@ Internet → Cloudflare Tunnel → inferencia (:8080)
                                      │
                               ┌──────┴──────┐
                               │  Middleware  │
+                              │  request_id →│
                               │  recover →   │
                               │  metrics →   │
                               │  logging →   │
@@ -321,10 +357,12 @@ Internet → Cloudflare Tunnel → inferencia (:8080)
 ```
 inferencia/
 ├── cmd/inferencia/main.go       # Entry point, wiring, graceful shutdown
-├── deploy/                      # Observability stack (Prometheus, Grafana, Alertmanager)
+├── deploy/                      # Observability stack
 │   ├── docker-compose.observability.yaml
 │   ├── prometheus/              # Scrape config + alert rules
-│   ├── grafana/                 # Dashboards + datasource provisioning
+│   ├── loki/                    # Loki config (log aggregation)
+│   ├── promtail/                # Promtail config (log shipping)
+│   ├── grafana/                 # Dashboards + datasource provisioning (Prometheus + Loki)
 │   └── alertmanager/            # Alertmanager config (Slack, email, etc.)
 ├── docs/
 │   ├── AGENT_ONBOARDING.md     # API quickstart guide for clients and agents
