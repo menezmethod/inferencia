@@ -1,9 +1,12 @@
-.PHONY: build run test lint clean fmt vet
+.PHONY: build run test lint clean fmt vet openapi
 
 BINARY := inferencia
 PKG    := ./...
 
-build:
+openapi:
+	cp docs/openapi.yaml internal/openapi/spec.yaml
+
+build: openapi
 	go build -o $(BINARY) ./cmd/inferencia
 
 run: build

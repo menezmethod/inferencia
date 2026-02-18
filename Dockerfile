@@ -13,6 +13,7 @@ RUN go mod download
 
 # Source and build (no CGO, stripped, reproducible)
 COPY . .
+RUN cp docs/openapi.yaml internal/openapi/spec.yaml
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -trimpath \
     -ldflags="-s -w" \

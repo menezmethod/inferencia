@@ -28,9 +28,11 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *sl
 		)
 	}
 
-	// Health endpoints — no auth required.
+	// Health and docs — no auth required.
 	mux.HandleFunc("GET /health", handler.Health())
 	mux.HandleFunc("GET /health/ready", handler.Ready(reg))
+	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPI())
+	mux.HandleFunc("GET /docs", handler.SwaggerUI())
 
 	// OpenAI-compatible API endpoints — auth + rate limiting required.
 	mux.Handle("POST /v1/chat/completions", protected(handler.ChatCompletions(reg, logger)))

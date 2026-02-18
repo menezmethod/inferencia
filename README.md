@@ -242,6 +242,12 @@ If `/health/ready` fails, the container cannot reach the MLX host at `INFERENCIA
 - [ ] **Rate limit**: Defaults (10 req/s, burst 20) are in config; override with `INFERENCIA_RATELIMIT_RPS` / `INFERENCIA_RATELIMIT_BURST` if needed.
 - [ ] **Logs**: Set `INFERENCIA_LOG_LEVEL=info` (or `debug` only when troubleshooting).
 
+## API documentation
+
+- **Swagger UI**: [https://llm.menezmethod.com/docs](https://llm.menezmethod.com/docs)
+- **OpenAPI spec**: [https://llm.menezmethod.com/openapi.yaml](https://llm.menezmethod.com/openapi.yaml)
+- **Quickstart guide**: [docs/AGENT_ONBOARDING.md](docs/AGENT_ONBOARDING.md) — how to connect any OpenAI-compatible client (Python, Node.js, curl, LangChain, etc.) to inferencia.
+
 ## Architecture
 
 ```
@@ -271,14 +277,18 @@ Internet → Cloudflare Tunnel → inferencia (:8080)
 ```
 inferencia/
 ├── cmd/inferencia/main.go       # Entry point, wiring, graceful shutdown
+├── docs/
+│   ├── AGENT_ONBOARDING.md     # API quickstart guide for clients and agents
+│   └── openapi.yaml            # OpenAPI 3.1 spec (reference copy)
 ├── internal/
 │   ├── config/config.go         # YAML + env configuration
 │   ├── server/server.go         # HTTP server & route registration
-│   ├── handler/                 # HTTP handlers (chat, models, embeddings, health)
+│   ├── handler/                 # HTTP handlers (chat, models, embeddings, health, docs)
 │   ├── middleware/               # Auth, rate limiting, logging, recovery
 │   ├── backend/                  # Backend interface, MLX adapter, Ollama stub
 │   ├── auth/keystore.go         # API key storage & validation
-│   └── apierror/error.go       # OpenAI-compatible error responses
+│   ├── apierror/error.go       # OpenAI-compatible error responses
+│   └── openapi/spec.yaml       # Embedded OpenAPI spec (served at /openapi.yaml)
 ├── config.example.yaml
 ├── keys.example.txt
 ├── Dockerfile                   # Multi-stage, non-root, healthcheck (Coolify-ready)

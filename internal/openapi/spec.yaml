@@ -1,0 +1,707 @@
+openapi: 3.1.0
+info:
+  title: inferencia
+  description: |
+    OpenAI-compatible API gateway for local LLM inference.
+
+    inferencia proxies chat completions, embeddings, and model listing to local
+    backends (MLX, Ollama) while adding bearer-token authentication, per-key
+    token-bucket rate limiting, structured logging, and graceful shutdown.
+
+    **Compatibility** — Any client or SDK that speaks the OpenAI API
+    (`openai-python`, `openai-node`, LangChain, LlamaIndex, etc.) works with
+    inferencia by setting `base_url` and `api_key`.
+  version: 1.0.0
+  contact:
+    name: inferencia
+    url: https://github.com/menez/inferencia
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://llm.menezmethod.com
+    description: Production
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Health
+    description: Liveness and readiness probes (no authentication required).
+  - name: Chat
+    description: Create chat completions with optional streaming and tool calling.
+  - name: Models
+    description: List available models from the inference backend.
+  - name: Embeddings
+    description: Generate vector embeddings for text input.
+
+paths:
+  /health:
+    get:
+      operationId: healthLiveness
+      tags: [Health]
+      summary: Liveness probe
+      description: Returns 200 when the process is running. Suitable for container liveness checks.
+      responses:
+        "200":
+          description: Server is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+              example:
+                status: ok
+
+  /health/ready:
+    get:
+      operationId: healthReadiness
+      tags: [Health]
+      summary: Readiness probe
+      description: |
+        Returns 200 only when every registered backend is reachable.
+        Returns 503 with the failing backend name and error detail otherwise.
+        Suitable for load-balancer and container readiness checks.
+      responses:
+        "200":
+          description: All backends healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ready]
+              example:
+                status: ready
+        "503":
+          description: At least one backend is unreachable.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, backend, error]
+                properties:
+                  status:
+                    type: string
+                    enum: [unavailable]
+                  backend:
+                    type: string
+                    description: Name of the failing backend.
+                  error:
+                    type: string
+                    description: Human-readable error detail.
+              example:
+                status: unavailable
+                backend: mlx
+                error: "mlx health check: dial tcp 192.168.0.50:11973: connect: connection refused"
+
+  /v1/models:
+    get:
+      operationId: listModels
+      tags: [Models]
+      summary: List models
+      description: Returns all models available from the primary backend.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: A list of models.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelsResponse"
+              example:
+                object: list
+                data:
+                  - id: mlx-community/gpt-oss-20b-MXFP4-Q8
+                    object: model
+                    created: 0
+                    owned_by: mlx-knife-2.0
+                  - id: mlx-community/Llama-3.2-3B-Instruct-4bit
+                    object: model
+                    created: 0
+                    owned_by: mlx-knife-2.0
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/BackendUnavailable"
+
+  /v1/chat/completions:
+    post:
+      operationId: createChatCompletion
+      tags: [Chat]
+      summary: Create chat completion
+      description: |
+        Generates a model response for the given conversation. Supports:
+
+        - **Streaming** — Set `stream: true` to receive Server-Sent Events (SSE).
+          Each event is `data: {json}\n\n`; the final event is `data: [DONE]\n\n`.
+        - **Tool calling** — Supply a `tools` array to enable function calling.
+          The model may respond with `tool_calls` in the assistant message.
+        - **Structured output** — Use `response_format` for constrained generation.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+            examples:
+              simple:
+                summary: Simple message
+                value:
+                  model: mlx-community/gpt-oss-20b-MXFP4-Q8
+                  messages:
+                    - role: user
+                      content: "What is 2+2?"
+                  max_tokens: 100
+              streaming:
+                summary: Streaming
+                value:
+                  model: mlx-community/gpt-oss-20b-MXFP4-Q8
+                  messages:
+                    - role: user
+                      content: "Hello!"
+                  stream: true
+              tool_calling:
+                summary: Tool calling
+                value:
+                  model: mlx-community/gpt-oss-20b-MXFP4-Q8
+                  messages:
+                    - role: user
+                      content: "What is the weather in SF?"
+                  tools:
+                    - type: function
+                      function:
+                        name: get_weather
+                        description: Get current weather for a location
+                        parameters:
+                          type: object
+                          properties:
+                            location:
+                              type: string
+                          required: [location]
+      responses:
+        "200":
+          description: |
+            Chat completion response. Returns JSON for non-streaming requests
+            or `text/event-stream` when `stream: true`.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+              example:
+                id: chatcmpl-abc123
+                object: chat.completion
+                created: 1677858242
+                model: mlx-community/gpt-oss-20b-MXFP4-Q8
+                choices:
+                  - index: 0
+                    message:
+                      role: assistant
+                      content: "2+2 equals 4."
+                    finish_reason: stop
+                usage:
+                  prompt_tokens: 13
+                  completion_tokens: 7
+                  total_tokens: 20
+            text/event-stream:
+              schema:
+                type: string
+                description: "SSE stream. Each event is data: {json}\\n\\n, terminated by data: [DONE]\\n\\n."
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/BackendUnavailable"
+
+  /v1/embeddings:
+    post:
+      operationId: createEmbedding
+      tags: [Embeddings]
+      summary: Create embedding
+      description: Generates an embedding vector for the given input text or array of texts.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmbeddingRequest"
+            example:
+              model: mlx-community/Qwen3-Embedding-4B-4bit-DWQ
+              input: "The quick brown fox jumps over the lazy dog."
+      responses:
+        "200":
+          description: Embedding response with vector data and usage.
+          headers:
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmbeddingResponse"
+              example:
+                object: list
+                data:
+                  - object: embedding
+                    index: 0
+                    embedding: [0.0023, -0.0094, 0.0157]
+                model: mlx-community/Qwen3-Embedding-4B-4bit-DWQ
+                usage:
+                  prompt_tokens: 11
+                  completion_tokens: 0
+                  total_tokens: 11
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/BackendUnavailable"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "sk-..."
+      description: |
+        API key passed as a Bearer token. Obtain a key from the administrator.
+        Example: `Authorization: Bearer sk-your-api-key`
+
+  headers:
+    X-RateLimit-Limit:
+      description: Maximum number of requests allowed in the current window (burst size).
+      schema:
+        type: integer
+        example: 20
+    X-RateLimit-Remaining:
+      description: Number of requests remaining in the current window.
+      schema:
+        type: integer
+        example: 19
+
+  schemas:
+    # ── Models ──────────────────────────────────────────────────────────
+    ModelsResponse:
+      type: object
+      required: [object, data]
+      properties:
+        object:
+          type: string
+          enum: [list]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Model"
+
+    Model:
+      type: object
+      required: [id, object, created, owned_by]
+      properties:
+        id:
+          type: string
+          description: Unique model identifier.
+          example: mlx-community/gpt-oss-20b-MXFP4-Q8
+        object:
+          type: string
+          enum: [model]
+        created:
+          type: integer
+          format: int64
+          description: Unix timestamp of model creation (may be 0).
+        owned_by:
+          type: string
+          description: Organization or system that owns the model.
+          example: mlx-knife-2.0
+
+    # ── Chat Completions ────────────────────────────────────────────────
+    ChatCompletionRequest:
+      type: object
+      required: [model, messages]
+      properties:
+        model:
+          type: string
+          description: Model ID to use. Must match an ID from `/v1/models`.
+          example: mlx-community/gpt-oss-20b-MXFP4-Q8
+        messages:
+          type: array
+          minItems: 1
+          description: Conversation messages in chronological order.
+          items:
+            $ref: "#/components/schemas/Message"
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          description: Sampling temperature. Higher values increase randomness.
+        top_p:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Nucleus sampling probability mass.
+        n:
+          type: integer
+          minimum: 1
+          description: Number of completions to generate.
+        max_tokens:
+          type: integer
+          minimum: 1
+          description: Maximum number of tokens to generate.
+        max_completion_tokens:
+          type: integer
+          minimum: 1
+          description: Alternative to max_tokens for completion token budget.
+        stop:
+          description: Up to 4 sequences where generation stops.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+              maxItems: 4
+        stream:
+          type: boolean
+          default: false
+          description: If true, returns a Server-Sent Events stream.
+        presence_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          description: Penalizes tokens based on whether they appeared in the text so far.
+        frequency_penalty:
+          type: number
+          minimum: -2
+          maximum: 2
+          description: Penalizes tokens based on their frequency in the text so far.
+        user:
+          type: string
+          description: Unique identifier for the end-user (for abuse tracking).
+        tools:
+          type: array
+          description: List of tools the model may call.
+          items:
+            $ref: "#/components/schemas/Tool"
+        tool_choice:
+          description: Controls which tool (if any) the model should use.
+          oneOf:
+            - type: string
+              enum: [none, auto, required]
+            - type: object
+              properties:
+                type:
+                  type: string
+                  enum: [function]
+                function:
+                  type: object
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+        response_format:
+          type: object
+          description: Constrains output format (e.g. JSON mode).
+          properties:
+            type:
+              type: string
+              enum: [text, json_object]
+
+    Message:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+          description: The role of the message author.
+        content:
+          description: Message content. String for most roles; may be null for assistant messages with tool_calls.
+          oneOf:
+            - type: string
+            - type: "null"
+            - type: array
+              description: Array of content parts (text, images, etc.).
+              items:
+                type: object
+        name:
+          type: string
+          description: Optional name of the message author.
+        tool_calls:
+          type: array
+          description: Tool calls generated by the model (assistant messages only).
+          items:
+            $ref: "#/components/schemas/ToolCall"
+        tool_call_id:
+          type: string
+          description: ID of the tool call this message responds to (tool messages only).
+
+    Tool:
+      type: object
+      required: [type, function]
+      properties:
+        type:
+          type: string
+          enum: [function]
+        function:
+          $ref: "#/components/schemas/ToolFunction"
+
+    ToolFunction:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: The name of the function.
+        description:
+          type: string
+          description: What the function does. Helps the model decide when to call it.
+        parameters:
+          type: object
+          description: JSON Schema describing the function's parameters.
+
+    ToolCall:
+      type: object
+      required: [id, type, function]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for this tool call.
+        type:
+          type: string
+          enum: [function]
+        function:
+          type: object
+          required: [name, arguments]
+          properties:
+            name:
+              type: string
+              description: The function name the model is calling.
+            arguments:
+              type: string
+              description: JSON-encoded arguments for the function.
+
+    ChatCompletionResponse:
+      type: object
+      required: [id, object, created, model, choices]
+      properties:
+        id:
+          type: string
+          description: Unique completion identifier.
+          example: chatcmpl-abc123
+        object:
+          type: string
+          enum: [chat.completion]
+        created:
+          type: integer
+          format: int64
+          description: Unix timestamp when the completion was created.
+        model:
+          type: string
+          description: The model used for completion.
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Choice"
+        usage:
+          $ref: "#/components/schemas/Usage"
+
+    Choice:
+      type: object
+      required: [index, finish_reason]
+      properties:
+        index:
+          type: integer
+          description: Zero-based index of this choice.
+        message:
+          $ref: "#/components/schemas/Message"
+          description: The generated message (non-streaming).
+        delta:
+          $ref: "#/components/schemas/Message"
+          description: The message delta (streaming).
+        finish_reason:
+          type: string
+          enum: [stop, length, tool_calls, content_filter, "null"]
+          description: Why the model stopped generating.
+          nullable: true
+
+    # ── Embeddings ──────────────────────────────────────────────────────
+    EmbeddingRequest:
+      type: object
+      required: [model, input]
+      properties:
+        model:
+          type: string
+          description: Model ID to use for embedding generation.
+          example: mlx-community/Qwen3-Embedding-4B-4bit-DWQ
+        input:
+          description: Text to embed. A string or array of strings.
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        encoding_format:
+          type: string
+          enum: [float, base64]
+          default: float
+          description: The format of the returned embeddings.
+
+    EmbeddingResponse:
+      type: object
+      required: [object, data, model, usage]
+      properties:
+        object:
+          type: string
+          enum: [list]
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Embedding"
+        model:
+          type: string
+        usage:
+          $ref: "#/components/schemas/Usage"
+
+    Embedding:
+      type: object
+      required: [object, index, embedding]
+      properties:
+        object:
+          type: string
+          enum: [embedding]
+        index:
+          type: integer
+          description: Position of this embedding in the input array.
+        embedding:
+          type: array
+          items:
+            type: number
+          description: The embedding vector.
+
+    # ── Shared ──────────────────────────────────────────────────────────
+    Usage:
+      type: object
+      required: [prompt_tokens, completion_tokens, total_tokens]
+      properties:
+        prompt_tokens:
+          type: integer
+          description: Tokens in the prompt.
+        completion_tokens:
+          type: integer
+          description: Tokens in the generated completion.
+        total_tokens:
+          type: integer
+          description: Total tokens (prompt + completion).
+
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [message, type]
+          properties:
+            message:
+              type: string
+              description: Human-readable error message.
+            type:
+              type: string
+              enum:
+                - invalid_request_error
+                - authentication_error
+                - rate_limit_error
+                - server_error
+                - backend_error
+              description: Error category.
+            code:
+              type: string
+              description: Machine-readable error code.
+              nullable: true
+            param:
+              type: string
+              description: The parameter that caused the error, if applicable.
+              nullable: true
+
+  responses:
+    BadRequest:
+      description: The request body is malformed or a required parameter is missing.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error:
+              message: "messages is required and must not be empty"
+              type: invalid_request_error
+              param: messages
+    Unauthorized:
+      description: The API key is missing, malformed, or not recognized.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error:
+              message: "Invalid or missing API key."
+              type: authentication_error
+              code: invalid_api_key
+    RateLimited:
+      description: Per-key rate limit exceeded. Retry after the `Retry-After` interval.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+            example: 1
+        X-RateLimit-Limit:
+          $ref: "#/components/headers/X-RateLimit-Limit"
+        X-RateLimit-Remaining:
+          $ref: "#/components/headers/X-RateLimit-Remaining"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error:
+              message: "Rate limit exceeded. Please retry after a brief wait."
+              type: rate_limit_error
+              code: rate_limit_exceeded
+    BackendUnavailable:
+      description: The inference backend is unreachable or returned an error.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+          example:
+            error:
+              message: "Backend mlx is currently unavailable."
+              type: backend_error
+              code: backend_unavailable
