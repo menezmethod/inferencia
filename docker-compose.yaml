@@ -8,8 +8,6 @@ services:
       context: .
       dockerfile: Dockerfile
     image: inferencia:latest
-    ports:
-      - "8080:8080"
     restart: unless-stopped
     environment:
       INFERENCIA_HOST: ${INFERENCIA_HOST:-0.0.0.0}
