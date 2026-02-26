@@ -56,28 +56,27 @@ Suggested jobs (names matter for branch protection):
 | Job | Purpose |
 |-----|--------|
 | **Build & test** | Build, unit tests (e.g. `-race`), vet. No secrets required. |
-| **Lint** | golangci-lint (or equivalent). No secrets required. |
 | **Sensitive data** | Blocklist script + gitleaks. Uses `SENSITIVE_BLOCKLIST` secret; when unset, blocklist step is skipped. |
 | **Integration** | Start app, run Ginkgo integration suite + Newman (Postman); then Docker smoke (build image, curl health/auth). No prod URL. |
 | **Connectivity (backend)** | Optional. Run only when a secret (e.g. `APP_CI_BACKEND_URL`) is set; start app, hit health/ready to verify app → backend. |
 | **Trigger Coolify deploy** | Optional. Only on push to `main`; call Coolify webhook if `COOLIFY_WEBHOOK` is set. Prefer **Coolify Auto Deploy** so this job is optional. |
 
-- **Required for merge**: Build & test, Lint, Integration, Sensitive data. Do **not** require Connectivity unless you rely on it and set the backend secret.
-- **On PR**: run Build & test, Lint, Sensitive data, Integration (and optionally Connectivity). Do **not** run the deploy step on PRs.
+- **Required for merge**: Build & test, Integration, Sensitive data. Do **not** require Connectivity unless you rely on it and set the backend secret. (Lint can be local-only if your CI runner’s golangci-lint doesn’t support your Go version.)
+- **On PR**: run Build & test, Sensitive data, Integration (and optionally Connectivity). Do **not** run the deploy step on PRs.
 
 ---
 
 ## 5. Branch protection
 
 - **Branch**: `main` (or `master`).
-- **Rules**: Require status checks **Build & test**, **Lint**, **Integration**, **Sensitive data**. Strict, no force-push, no deletion.
+- **Rules**: Require status checks **Build & test**, **Integration**, **Sensitive data**. Strict, no force-push, no deletion.
 - **Note**: On GitHub free tier, branch protection with required status checks is available for **public** repos; for private you need GitHub Team/Pro or make the repo public.
 
 Apply via API (after at least one CI run so the check names exist):
 
 ```bash
 # Replace with your job names if different
-echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Lint","Integration","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
+echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Integration","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
   | gh api repos/:owner/:repo/branches/main/protection -X PUT -H "Accept: application/vnd.github+json" --input -
 ```
 
@@ -127,8 +126,8 @@ Or use a **setup script** (e.g. `scripts/setup-repo.sh`) that applies this and p
 - [ ] Sanitize repo (placeholders only; history clean if needed).
 - [ ] Add `scripts/check-sensitive-data.sh` (blocklist from env; mask on match).
 - [ ] Add `.gitleaks.toml` (default rules + allowlist paths/regexes for docs and examples).
-- [ ] CI workflow: Build & test, Lint, Sensitive data, Integration; optional Connectivity and deploy trigger.
-- [ ] Branch protection: require Build & test, Lint, Integration, Sensitive data.
+- [ ] CI workflow: Build & test, Sensitive data, Integration; optional Connectivity and deploy trigger.
+- [ ] Branch protection: require Build & test, Integration, Sensitive data.
 - [ ] Coolify: Auto Deploy on `main`; optional health check URL.
 - [ ] Set `SENSITIVE_BLOCKLIST` (and optional secrets) in GitHub; run setup script if you have one.
 - [ ] Optional: production smoke workflow + script; version/health endpoints.

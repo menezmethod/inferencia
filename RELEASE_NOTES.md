@@ -15,7 +15,7 @@ First official production release. 🚀
 
 ## CI/CD
 
-- GitHub Actions: Build & test, Lint, Integration, optional Connectivity; branch protection requires all checks before merge.
+- GitHub Actions: Build & test, Integration, Sensitive data, optional Connectivity; branch protection requires those checks before merge. Lint runs locally (`make lint`) only.
 - Production smoke workflow (optional) and [PUBLISHING.md](docs/PUBLISHING.md) for going public and Coolify setup.
 
 ## Upgrade / install

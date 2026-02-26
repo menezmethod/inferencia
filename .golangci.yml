@@ -1,4 +1,4 @@
-# CI runs: golangci-lint. Branch protection requires "Lint" to pass before merge.
+# Run locally: make lint. Not run in CI (golangci-lint-action binary targets Go 1.24; this repo uses Go 1.26).
 version: "2"
 run:
   timeout: 5m
