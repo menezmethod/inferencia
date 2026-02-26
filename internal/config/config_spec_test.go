@@ -80,10 +80,12 @@ log:
 			path := filepath.Join(GinkgoT().TempDir(), "config.yaml")
 			Expect(os.WriteFile(path, []byte(content), 0644)).NotTo(HaveOccurred())
 
-			os.Setenv("INFERENCIA_PORT", "3000")
-			os.Setenv("INFERENCIA_LOG_LEVEL", "debug")
-			defer os.Unsetenv("INFERENCIA_PORT")
-			defer os.Unsetenv("INFERENCIA_LOG_LEVEL")
+			_ = os.Setenv("INFERENCIA_PORT", "3000")
+			_ = os.Setenv("INFERENCIA_LOG_LEVEL", "debug")
+			defer func() {
+				_ = os.Unsetenv("INFERENCIA_PORT")
+				_ = os.Unsetenv("INFERENCIA_LOG_LEVEL")
+			}()
 
 			cfg, err := Load(path)
 			Expect(err).NotTo(HaveOccurred())
@@ -94,8 +96,8 @@ log:
 
 	When("INFERENCIA_BACKEND_URL is set", func() {
 		It("overrides the first backend URL", func() {
-			os.Setenv("INFERENCIA_BACKEND_URL", "http://192.168.0.x:11973")
-			defer os.Unsetenv("INFERENCIA_BACKEND_URL")
+			_ = os.Setenv("INFERENCIA_BACKEND_URL", "http://192.168.0.x:11973")
+			defer func() { _ = os.Unsetenv("INFERENCIA_BACKEND_URL") }()
 
 			cfg, err := Load("")
 			Expect(err).NotTo(HaveOccurred())

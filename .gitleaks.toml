@@ -1,0 +1,29 @@
+# Gitleaks config: use default rules but allowlist known placeholder/example content.
+# CI runs: gitleaks protect --no-git --redact -v
+# Add new allowlist entries when we add intentional examples (e.g. sk-your-key in docs).
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder keys and example files safe for public repo"
+paths = [
+  '''keys\.example\.txt''',
+  '''config\.example\.yaml''',
+  '''\.env\.example$''',
+  '''env\.coolify\.example''',
+  '''\.env\.gh\.secrets\.example''',
+  '''RELEASE_NOTES\.md''',
+]
+# Allow placeholder API keys and example IPs in docs/code
+regexes = [
+  '''sk-your-''',
+  '''sk-PASTE_''',
+  '''sk-inferencia-dev''',
+  '''sk-ci-test-key''',
+  '''sk-connectivity''',
+  '''sk-env-''',
+  '''sk-valid-key''',
+  '''192\.168\.0\.x''',
+  '''your-inferencia\.example\.com''',
+]

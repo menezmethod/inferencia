@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test production (https://llm.menezmethod.com).
+# Smoke test production. Set INFERENCIA_SMOKE_BASE_URL to your deployment (e.g. https://your-inferencia.example.com).
 # No auth: health, ready, metrics. With INFERENCIA_E2E_API_KEY: /v1/models (optional: chat).
 set -e
 

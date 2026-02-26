@@ -42,7 +42,7 @@ Tests use **Ginkgo** (BDD) and **Gomega** (matchers) for handler, config, and au
 - **CI**: Every push/PR runs `go build`, `go test -race`, `go vet`. No merge to `main` if they fail.
 - **Coverage**: Raise unit test coverage for critical paths (handlers, auth, config, middleware) toward **≥70%** per package where practical.
 - **Integration tests**: One or more tests that start the real `inferencia` server (test config, no OTel), hit public routes (health, ready, metrics, optional `/v1/models` with test key), and shut down. No external MLX.
-- **Functional / E2E**: Optional: script or make target that hits **production** (e.g. `https://llm.menezmethod.com`) for health/ready/metrics and, if `INFERENCIA_E2E_API_KEY` is set, `/v1/models` and a minimal chat. Used for post-deploy or scheduled checks, not as a gate for PRs.
+- **Functional / E2E**: Optional: script or make target that hits **production** (e.g. `https://your-inferencia.example.com`) for health/ready/metrics and, if `INFERENCIA_E2E_API_KEY` is set, `/v1/models` and a minimal chat. Used for post-deploy or scheduled checks, not as a gate for PRs.
 
 ---
 
@@ -97,8 +97,8 @@ Target: **≥70%** coverage for `handler`, `middleware`, `config`, `auth`, `back
 ### Phase 4 — Functional / E2E and monitoring
 
 - [ ] **Prod smoke in CI (optional)**
-  - Separate job or workflow that runs `scripts/smoke-prod.sh` against `https://llm.menezmethod.com`, only when `INFERENCIA_E2E_API_KEY` is set in repo secrets. Run on schedule (e.g. cron) or after deploy; fail the job if health/ready/metrics fail (and optionally if `/v1/models` returns non-2xx with valid key).
-- [ ] Document in README: “Production is at https://llm.menezmethod.com; CI ensures tests pass before merge; optional prod smoke can be run with `make smoke-prod`.”
+  - Separate job or workflow that runs `scripts/smoke-prod.sh` against your deployment URL (set `INFERENCIA_SMOKE_BASE_URL` in repo secrets), only when `INFERENCIA_E2E_API_KEY` is set in repo secrets. Run on schedule (e.g. cron) or after deploy; fail the job if health/ready/metrics fail (and optionally if `/v1/models` returns non-2xx with valid key).
+- [ ] Document in README: set INFERENCIA_SMOKE_BASE_URL to your deployment; CI ensures tests pass before merge; optional prod smoke: make smoke-prod.
 
 ---
 

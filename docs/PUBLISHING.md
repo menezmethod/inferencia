@@ -64,22 +64,18 @@ gh repo edit --add-topic go --add-topic openai-api --add-topic llm --add-topic m
 
 ### 2.2 Branch protection (main as source of truth)
 
+**Note:** Branch protection (required status checks, block force-push/deletion) is **not available for private repos on the free tier**; it requires GitHub Team/Pro or a **public** repo. To use it for free, make the repo public first: `gh repo edit --visibility public`.
+
 Require CI to pass before merging; prevent force-push and deletion of `main`:
 
 ```bash
 # Require job names from .github/workflows/ci.yml (run after at least one CI run so these exist)
-gh api repos/:owner/:repo/branches/main/protection -X PUT \
-  -H "Accept: application/vnd.github+json" \
-  -f required_status_checks='{"strict":true,"contexts":["Build & test","Lint","Integration (Docker smoke)"]}' \
-  -f enforce_admins=true \
-  -f required_pull_request_reviews='{}' \
-  -f restrictions='null' \
-  -F allow_force_pushes=false \
-  -F allow_deletions=false
+echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Lint","Integration (Docker smoke)","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
+  | gh api repos/:owner/:repo/branches/main/protection -X PUT -H "Accept: application/vnd.github+json" --input -
 ```
-Or use `./scripts/setup-repo.sh` to apply this and set secrets in one go.
+Or use `./scripts/setup-repo.sh` to apply this and set secrets in one go (script will warn if repo is private and protection fails).
 
-Required status checks (job names from `.github/workflows/ci.yml`): **Build & test**, **Lint**, **Integration (Docker smoke)**. (Do **not** require **Connectivity (backend)** unless your repo has `INFERENCIA_CI_BACKEND_URL` set and you want it as a gate.) Or set the same in the GitHub UI: **Settings → Branches → Add rule** for `main` → Require status checks → select those three.
+Required status checks (job names from `.github/workflows/ci.yml`): **Build & test**, **Lint**, **Integration (Docker smoke)**, and **Sensitive data**. All must pass before a PR can be merged. The Sensitive data job runs a blocklist check (no real prod URLs/hostnames in repo) and gitleaks (no accidental secrets); see `scripts/check-sensitive-data.sh` and `.gitleaks.toml`. (Do **not** require **Connectivity (backend)** unless you set `INFERENCIA_CI_BACKEND_URL` and want it as a gate.) **Trigger Coolify deploy** is skipped on PRs and runs only on push to `main`. Or set the same in the GitHub UI: **Settings → Branches → Add rule** for `main` → Require status checks → select the four jobs.
 
 ### 2.3 Security and dependency updates
 
@@ -140,3 +136,16 @@ From the repo root, after `gh auth login`:
 - Rotate any credentials that might have been in history or in private forks.
 - Document in README that the project is open source and that users should deploy their own instance with their own backend URL and API keys.
 - Point users to SECURITY.md for reporting vulnerabilities.
+
+## 5. Releases
+
+To cut an official release (e.g. v1.0.0) from `main`:
+
+1. Ensure the version is set at build time: Dockerfile uses `ARG VERSION=dev`; for release builds pass `--build-arg VERSION=1.0.0`. Makefile: `make build VERSION=1.0.0`.
+2. From repo root on `main` (after merge):  
+   `git tag -a v1.0.0 -m "Release v1.0.0"`  
+   `git push origin v1.0.0`
+3. Create the GitHub release:  
+   `gh release create v1.0.0 --notes-file RELEASE_NOTES.md`  
+   Optionally attach binaries or use the tag’s source zip from the GitHub UI.
+4. Deployed instances show the version in `GET /health` and `GET /version` (set at image build time).

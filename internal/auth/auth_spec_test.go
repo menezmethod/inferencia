@@ -29,8 +29,8 @@ sk-key-three
 
 	When("INFERENCIA_API_KEYS is set", func() {
 		It("uses env keys instead of file", func() {
-			os.Setenv("INFERENCIA_API_KEYS", "sk-env-one, sk-env-two")
-			defer os.Unsetenv("INFERENCIA_API_KEYS")
+			_ = os.Setenv("INFERENCIA_API_KEYS", "sk-env-one, sk-env-two")
+			defer func() { _ = os.Unsetenv("INFERENCIA_API_KEYS") }()
 
 			ks, err := NewKeyStore("")
 			Expect(err).NotTo(HaveOccurred())
@@ -58,10 +58,10 @@ sk-key-three
 
 var _ = Describe("Validate", func() {
 	BeforeEach(func() {
-		os.Setenv("INFERENCIA_API_KEYS", "sk-valid-key")
+		_ = os.Setenv("INFERENCIA_API_KEYS", "sk-valid-key")
 	})
 	AfterEach(func() {
-		os.Unsetenv("INFERENCIA_API_KEYS")
+		_ = os.Unsetenv("INFERENCIA_API_KEYS")
 	})
 
 	When("the key is valid", func() {

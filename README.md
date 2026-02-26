@@ -255,6 +255,7 @@ If `/health/ready` fails, the container cannot reach the MLX host at `INFERENCIA
 
 - **Swagger UI**: `https://your-deployment/docs`
 - **OpenAPI spec**: `https://your-deployment/openapi.yaml`
+- **Version**: `GET /version` returns `{"version":"1.0.0"}` (and optional `commit`). `GET /health` and `GET /health/ready` also include `version` in the JSON so you can see which inferencia build is running.
 - **Quickstart guide**: [docs/AGENT_ONBOARDING.md](docs/AGENT_ONBOARDING.md) — how to connect any OpenAI-compatible client (Python, Node.js, curl, LangChain, etc.) to inferencia.
 
 ## Observability

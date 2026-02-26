@@ -47,7 +47,7 @@ func (m *MLX) Health(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("mlx health check: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("mlx health check: status %d", resp.StatusCode)
@@ -75,7 +75,7 @@ func (m *MLX) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatRespons
 	if err != nil {
 		return nil, fmt.Errorf("mlx chat completion: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -113,7 +113,7 @@ func (m *MLX) ChatCompletionStream(ctx context.Context, req ChatRequest, send St
 	if err != nil {
 		return fmt.Errorf("mlx stream request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -158,7 +158,7 @@ func (m *MLX) ListModels(ctx context.Context) (*ModelsResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("mlx list models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -189,7 +189,7 @@ func (m *MLX) CreateEmbedding(ctx context.Context, req EmbedRequest) (*EmbedResp
 	if err != nil {
 		return nil, fmt.Errorf("mlx create embedding: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
