@@ -50,7 +50,7 @@ Auth: `Authorization: Bearer <key>`. Keys from file or `INFERENCIA_API_KEYS` env
 - **Local**: `make build` then `./inferencia -config config.yaml` or env only. `make run` uses config.yaml.
 - **Docker**: `docker build -t inferencia .` then run with `INFERENCIA_HOST=0.0.0.0`, `INFERENCIA_PORT=8080`, `INFERENCIA_BACKEND_URL`, `INFERENCIA_API_KEYS`.
 - **Tests**: `make test` (Ginkgo + race). `make smoke-prod` runs `scripts/smoke-prod.sh` (set `INFERENCIA_SMOKE_BASE_URL` to your deployment, e.g. `https://your-inferencia.example.com`; optional `INFERENCIA_E2E_API_KEY`).
-- **Lint**: `make lint` (golangci-lint); CI runs Lint, Build & test, Integration (Docker smoke), Sensitive data (blocklist + gitleaks).
+- **Lint**: `make lint` (golangci-lint) for local use; CI runs Build & test, Integration (Docker smoke), Sensitive data (blocklist + gitleaks).
 
 ## Sensitive data and docs
 

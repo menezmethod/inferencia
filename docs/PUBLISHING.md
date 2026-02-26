@@ -70,12 +70,12 @@ Require CI to pass before merging; prevent force-push and deletion of `main`:
 
 ```bash
 # Require job names from .github/workflows/ci.yml (run after at least one CI run so these exist)
-echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Lint","Integration (Docker smoke)","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
+echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Integration (Docker smoke)","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
   | gh api repos/:owner/:repo/branches/main/protection -X PUT -H "Accept: application/vnd.github+json" --input -
 ```
 Or use `./scripts/setup-repo.sh` to apply this and set secrets in one go (script will warn if repo is private and protection fails).
 
-Required status checks (job names from `.github/workflows/ci.yml`): **Build & test**, **Lint**, **Integration (Docker smoke)**, and **Sensitive data**. All must pass before a PR can be merged. The Sensitive data job runs a blocklist check (patterns from **SENSITIVE_BLOCKLIST** secret; when unset the check is skipped and passes) and gitleaks; see `scripts/check-sensitive-data.sh` and `.gitleaks.toml`. On blocklist match, the pattern and matched content are never echoed (masked for public logs). (Do **not** require **Connectivity (backend)** unless you set `INFERENCIA_CI_BACKEND_URL` and want it as a gate.) **Trigger Coolify deploy** is skipped on PRs and runs only on push to `main`. Or set the same in the GitHub UI: **Settings → Branches → Add rule** for `main` → Require status checks → select the four jobs.
+Required status checks (job names from `.github/workflows/ci.yml`): **Build & test**, **Integration (Docker smoke)**, and **Sensitive data**. All must pass before a PR can be merged. The Sensitive data job runs a blocklist check (patterns from **SENSITIVE_BLOCKLIST** secret; when unset the check is skipped and passes) and gitleaks; see `scripts/check-sensitive-data.sh` and `.gitleaks.toml`. On blocklist match, the pattern and matched content are never echoed (masked for public logs). (Do **not** require **Connectivity (backend)** unless you set `INFERENCIA_CI_BACKEND_URL` and want it as a gate.) **Trigger Coolify deploy** is skipped on PRs and runs only on push to `main`. Or set the same in the GitHub UI: **Settings → Branches → Add rule** for `main` → Require status checks → select the three jobs.
 
 ### 2.3 Security and dependency updates
 
