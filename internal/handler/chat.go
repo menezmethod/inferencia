@@ -85,12 +85,12 @@ func handleStream(w http.ResponseWriter, r *http.Request, b backend.Backend, req
 		}
 
 		if string(data) == "[DONE]" {
-			fmt.Fprintf(w, "data: [DONE]\n\n")
+			_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
 			flusher.Flush()
 			return nil
 		}
 
-		fmt.Fprintf(w, "data: %s\n\n", data)
+		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
 		return nil
 	}

@@ -4,7 +4,7 @@ A lightweight, secure API gateway that exposes local LLM servers to the internet
 
 Run models on your own hardware. Access them from anywhere.
 
-**Current setup:** inferencia is hosted on **Coolify** and works out of the box. Default chat model is **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B); use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when explicitly requested. Metrics and logging are always on.
+**Default chat model:** **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B); use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when explicitly requested. Deploy with Coolify or any container platform; metrics and logging are always on.
 
 ## Why
 
@@ -220,7 +220,7 @@ Then use `https://llm.yourdomain.com` (or whatever hostname you chose). See [Clo
 
 ## Deploy on Coolify (e.g. Raspberry Pi → MLX on M4)
 
-Run inferencia on a host that can reach your MLX server over the LAN (e.g. Pi at 192.168.0.207, MLX on M4 at a fixed LAN IP). Coolify builds the image, runs the container, and handles the tunnel and subdomain (e.g. `llm.menezmethod.com`).
+Run inferencia on a host that can reach your MLX server over the LAN (e.g. Pi and MLX on fixed LAN IPs). Coolify builds the image, runs the container, and handles the tunnel and subdomain (e.g. `llm.yourdomain.com`).
 
 1. **Push this repo to GitHub** (private is fine). Coolify will clone and build from it.
 
@@ -232,14 +232,16 @@ Run inferencia on a host that can reach your MLX server over the LAN (e.g. Pi at
    |----------|---------|--------|
    | `INFERENCIA_HOST` | `0.0.0.0` | Listen on all interfaces so Coolify can proxy |
    | `INFERENCIA_PORT` | `8080` | Port the app listens on (match Coolify’s proxy) |
-   | `INFERENCIA_BACKEND_URL` | `http://192.168.0.50:11973` | MLX server URL (use your M4’s LAN IP; prefer DHCP reservation) |
+   | `INFERENCIA_BACKEND_URL` | `http://192.168.0.x:11973` | MLX server URL (use your backend’s LAN IP; prefer DHCP reservation) |
    | `INFERENCIA_API_KEYS` | `sk-your-secret-key` | Comma-separated API keys (no keys file in container) |
 
-4. **Subdomain**: In Coolify, set the public URL to `llm.menezmethod.com` (or your domain). Coolify will configure the tunnel and TLS.
+4. **Subdomain**: In Coolify, set the public URL to your domain (e.g. `llm.yourdomain.com`). Coolify will configure the tunnel and TLS.
 
-5. **Test**: After deploy, `curl https://llm.menezmethod.com/health` and `curl -H "Authorization: Bearer sk-your-secret-key" https://llm.menezmethod.com/v1/models`.
+5. **Test**: After deploy, `curl https://your-domain/health` and `curl -H "Authorization: Bearer sk-your-secret-key" https://your-domain/v1/models`.
 
 If `/health/ready` fails, the container cannot reach the MLX host at `INFERENCIA_BACKEND_URL`; check LAN connectivity and that the M4 is on and MLX is listening on 11973.
+
+**Deploy only after CI passes** — **Coolify Auto Deploy** on `main` + **branch protection**: `main` always auto-deploys when updated; only CI-passing code can be merged to `main`, so every deploy is from a green build. No webhook or secrets. See [docs/PUBLISHING.md](docs/PUBLISHING.md#coolify-main-auto-deploys).
 
 ### Production checklist
 
@@ -251,8 +253,9 @@ If `/health/ready` fails, the container cannot reach the MLX host at `INFERENCIA
 
 ## API documentation
 
-- **Swagger UI**: [https://llm.menezmethod.com/docs](https://llm.menezmethod.com/docs)
-- **OpenAPI spec**: [https://llm.menezmethod.com/openapi.yaml](https://llm.menezmethod.com/openapi.yaml)
+- **Swagger UI**: `https://your-deployment/docs`
+- **OpenAPI spec**: `https://your-deployment/openapi.yaml`
+- **Version**: `GET /version` returns `{"version":"1.0.0"}` (and optional `commit`). `GET /health` and `GET /health/ready` also include `version` in the JSON so you can see which inferencia build is running.
 - **Quickstart guide**: [docs/AGENT_ONBOARDING.md](docs/AGENT_ONBOARDING.md) — how to connect any OpenAI-compatible client (Python, Node.js, curl, LangChain, etc.) to inferencia.
 
 ## Observability
@@ -420,7 +423,13 @@ inferencia/
 ├── docs/
 │   ├── AGENT_ONBOARDING.md     # API quickstart guide for clients and agents
 │   ├── METRICS_AND_LOGGING.md  # Metrics and logging setup guide
+│   ├── TESTING_PLAN.md         # Testing plan and CI
 │   └── openapi.yaml            # OpenAPI 3.1 spec (reference copy)
+├── scripts/
+│   ├── run-integration-and-newman.sh  # Start app, run Ginkgo integration + Newman
+│   └── smoke-prod.sh           # Production smoke test (health, ready, metrics)
+├── integration/                 # Ginkgo integration suite (spins up app, hits API)
+├── postman/                     # Postman collection + env for Newman (API contract tests)
 ├── internal/
 │   ├── config/config.go         # YAML + env configuration
 │   ├── server/server.go         # HTTP server & route registration
@@ -439,6 +448,20 @@ inferencia/
 ├── Makefile
 └── README.md
 ```
+
+## Testing
+
+CI runs on every push and PR: **build**, **test** (with `-race`), and **vet** must pass. See [docs/TESTING_PLAN.md](docs/TESTING_PLAN.md) for the full testing plan. To configure GitHub (branch protection, Coolify deploy webhook, smoke-test secrets) in one go: copy `.env.gh.secrets.example` to `.env.gh.secrets`, fill in values, and run `./scripts/setup-repo.sh` (requires `gh auth login`). See [docs/PUBLISHING.md](docs/PUBLISHING.md) for sanitization and going public. For a reusable CI/CD and hosting path across apps, see [docs/CI_CD_AND_HOSTING_PLAYBOOK.md](docs/CI_CD_AND_HOSTING_PLAYBOOK.md). [SECURITY.md](SECURITY.md) describes how to report vulnerabilities.
+
+```bash
+make test        # Unit tests (Ginkgo/Gomega) with race detector
+make integration # Integration tests: spin up app, run Ginkgo suite + Newman (Postman CLI); must pass in CI
+make smoke-prod  # Smoke test your deployment (set INFERENCIA_SMOKE_BASE_URL; optional INFERENCIA_E2E_API_KEY for /v1/models)
+```
+
+The **integration** suite lives in `integration/` and uses Ginkgo to start the app and hit real endpoints; **Newman** runs the Postman collection in `postman/` (same flows). Both run in CI and must pass before merge.
+
+Unit tests use **Ginkgo** and **Gomega** for BDD-style specs in `internal/handler`, `internal/config`, and `internal/auth` (e.g. `Describe("Health", func() { It("returns 200 and status ok", ...) })`).
 
 ## Development
 

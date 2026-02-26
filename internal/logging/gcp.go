@@ -79,9 +79,10 @@ func NewLogger(w io.Writer, level slog.Level, format string, cloudFormat string)
 	} else {
 		base = slog.NewJSONHandler(w, opts)
 	}
-	if cloudFormat == "gcp" {
+	switch cloudFormat {
+	case "gcp":
 		base = NewGCPHandler(base, false)
-	} else if cloudFormat == "gcp_with_resource" {
+	case "gcp_with_resource":
 		base = NewGCPHandler(base, true)
 	}
 	return slog.New(base)
