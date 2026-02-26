@@ -17,11 +17,12 @@ import (
 
 // Config holds the complete application configuration.
 type Config struct {
-	Server    Server    `yaml:"server"`
-	Auth      Auth      `yaml:"auth"`
-	Backends  []Backend `yaml:"backends"`
-	RateLimit RateLimit `yaml:"ratelimit"`
-	Log       Log       `yaml:"log"`
+	Server         Server         `yaml:"server"`
+	Auth           Auth           `yaml:"auth"`
+	Backends       []Backend      `yaml:"backends"`
+	RateLimit      RateLimit      `yaml:"ratelimit"`
+	Log            Log            `yaml:"log"`
+	Observability  Observability  `yaml:"observability"`
 }
 
 // Server configures the HTTP listener.
@@ -53,8 +54,16 @@ type RateLimit struct {
 
 // Log configures structured logging.
 type Log struct {
-	Level  string `yaml:"level"`
-	Format string `yaml:"format"`
+	Level       string `yaml:"level"`
+	Format      string `yaml:"format"`
+	CloudFormat string `yaml:"cloud_format"` // "gcp" | "gcp_with_resource" | "" (disabled)
+}
+
+// Observability configures optional OpenTelemetry and cloud logging.
+type Observability struct {
+	OTelEnabled bool   `yaml:"otel_enabled"`
+	OTelEndpoint string `yaml:"otel_endpoint"` // OTLP HTTP endpoint, e.g. http://localhost:4318/v1/traces
+	OTelServiceName string `yaml:"otel_service_name"`
 }
 
 // Defaults returns a Config with sensible defaults.
@@ -82,8 +91,14 @@ func Defaults() Config {
 			Burst:             20,
 		},
 		Log: Log{
-			Level:  "info",
-			Format: "json",
+			Level:       "info",
+			Format:      "json",
+			CloudFormat: "",
+		},
+		Observability: Observability{
+			OTelEnabled:     false,
+			OTelEndpoint:    "",
+			OTelServiceName: "inferencia",
 		},
 	}
 }
@@ -132,6 +147,18 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("INFERENCIA_LOG_FORMAT"); v != "" {
 		cfg.Log.Format = strings.ToLower(v)
+	}
+	if v := os.Getenv("INFERENCIA_LOG_CLOUD_FORMAT"); v != "" {
+		cfg.Log.CloudFormat = strings.ToLower(strings.TrimSpace(v))
+	}
+	if v := os.Getenv("INFERENCIA_OTEL_ENABLED"); v != "" {
+		cfg.Observability.OTelEnabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("INFERENCIA_OTEL_ENDPOINT"); v != "" {
+		cfg.Observability.OTelEndpoint = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("INFERENCIA_OTEL_SERVICE_NAME"); v != "" {
+		cfg.Observability.OTelServiceName = strings.TrimSpace(v)
 	}
 	if v := os.Getenv("INFERENCIA_RATELIMIT_RPS"); v != "" {
 		if rps, err := strconv.ParseFloat(v, 64); err == nil {
@@ -183,6 +210,13 @@ func validate(cfg Config) error {
 	validFormats := map[string]bool{"json": true, "text": true}
 	if !validFormats[cfg.Log.Format] {
 		errs = append(errs, fmt.Errorf("log.format must be json or text; got %q", cfg.Log.Format))
+	}
+	validCloudFormats := map[string]bool{"": true, "gcp": true, "gcp_with_resource": true}
+	if !validCloudFormats[cfg.Log.CloudFormat] {
+		errs = append(errs, fmt.Errorf("log.cloud_format must be empty, gcp, or gcp_with_resource; got %q", cfg.Log.CloudFormat))
+	}
+	if cfg.Observability.OTelEnabled && cfg.Observability.OTelEndpoint == "" {
+		errs = append(errs, errors.New("observability.otel_endpoint is required when otel_enabled is true"))
 	}
 
 	return errors.Join(errs...)

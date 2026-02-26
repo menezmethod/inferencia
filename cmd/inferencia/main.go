@@ -12,6 +12,8 @@ import (
 	"github.com/menezmethod/inferencia/internal/auth"
 	"github.com/menezmethod/inferencia/internal/backend"
 	"github.com/menezmethod/inferencia/internal/config"
+	"github.com/menezmethod/inferencia/internal/logging"
+	"github.com/menezmethod/inferencia/internal/observability"
 	"github.com/menezmethod/inferencia/internal/server"
 )
 
@@ -55,6 +57,19 @@ func main() {
 	// Create and start HTTP server.
 	srv := server.New(cfg, reg, ks, logger)
 
+	// Optional OpenTelemetry tracing: wrap handler so all requests are traced.
+	var tp *observability.TracerProvider
+	if cfg.Observability.OTelEnabled {
+		var errOTel error
+		tp, errOTel = observability.NewTracerProvider(context.Background(), cfg.Observability.OTelEndpoint, cfg.Observability.OTelServiceName)
+		if errOTel != nil {
+			logger.Error("otel tracer provider failed", "err", errOTel)
+			os.Exit(1)
+		}
+		srv.Handler = observability.HTTPHandler(srv.Handler, cfg.Observability.OTelServiceName)
+		logger.Info("opentelemetry tracing enabled", "endpoint", cfg.Observability.OTelEndpoint)
+	}
+
 	// Graceful shutdown on SIGINT/SIGTERM.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
@@ -73,6 +88,9 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
+	if tp != nil {
+		_ = tp.Shutdown(ctx)
+	}
 	server.Shutdown(ctx, srv, logger)
 	logger.Info("server stopped")
 }
@@ -90,14 +108,17 @@ func newLogger(cfg config.Log) *slog.Logger {
 		level = slog.LevelInfo
 	}
 
-	opts := &slog.HandlerOptions{Level: level}
+	// Use cloud-friendly logger (GCP severity, optional resource) when configured.
+	if cfg.CloudFormat != "" {
+		return logging.NewLogger(os.Stdout, level, cfg.Format, cfg.CloudFormat)
+	}
 
+	opts := &slog.HandlerOptions{Level: level}
 	var handler slog.Handler
 	if cfg.Format == "text" {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 	} else {
 		handler = slog.NewJSONHandler(os.Stdout, opts)
 	}
-
 	return slog.New(handler)
 }

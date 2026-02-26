@@ -1,5 +1,6 @@
 # inferencia — configuration
 #
+# inferencia is the API gateway in front of MLX. Default chat model: gpt-oss-20b-MXFP4-Q8; use gpt-oss-120b-MXFP4-Q8 when requested.
 # Copy this file to config.yaml and adjust as needed.
 # Environment variables (INFERENCIA_*) override file values.
 
@@ -29,5 +30,12 @@ ratelimit:
   burst: 20
 
 log:
-  level: "info"    # debug | info | warn | error
-  format: "json"   # json | text
+  level: "info"       # debug | info | warn | error
+  format: "json"      # json | text
+  # cloud_format: ""  # "" | gcp | gcp_with_resource — add severity (and resource) for GCP Cloud Logging
+
+# Metrics: GET /metrics is always enabled (no auth). Optional tracing below.
+observability:
+  otel_enabled: false
+  otel_endpoint: "http://localhost:4318"   # http = insecure (local); https = TLS (prod)
+  otel_service_name: "inferencia"

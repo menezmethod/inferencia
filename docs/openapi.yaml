@@ -143,6 +143,10 @@ paths:
               example:
                 object: list
                 data:
+                  - id: mlx-community/gpt-oss-120b-MXFP4-Q8
+                    object: model
+                    created: 0
+                    owned_by: mlx-knife-2.0
                   - id: mlx-community/gpt-oss-20b-MXFP4-Q8
                     object: model
                     created: 0

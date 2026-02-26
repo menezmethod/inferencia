@@ -173,6 +173,16 @@ func TestValidation(t *testing.T) {
 			modify:  func(c *Config) { c.RateLimit.RequestsPerSecond = 0 },
 			wantErr: true,
 		},
+		{
+			name:    "otel enabled but no endpoint",
+			modify:  func(c *Config) { c.Observability.OTelEnabled = true; c.Observability.OTelEndpoint = "" },
+			wantErr: true,
+		},
+		{
+			name:    "invalid cloud_format",
+			modify:  func(c *Config) { c.Log.CloudFormat = "aws" },
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

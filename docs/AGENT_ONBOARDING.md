@@ -1,6 +1,6 @@
 # inferencia API
 
-OpenAI-compatible REST API for chat completions, embeddings, and model management.
+OpenAI-compatible REST API for chat completions, embeddings, and model management. **inferencia** is hosted on Coolify. Default chat model: **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B); use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when requested.
 
 **Base URL**
 
@@ -49,6 +49,8 @@ Default: 10 requests/second, burst of 20.
 | `/v1/chat/completions` | POST | Bearer | Chat completions (streaming, tool calling) |
 | `/v1/embeddings` | POST | Bearer | Generate embeddings |
 
+**Metrics and logging:** See [METRICS_AND_LOGGING.md](METRICS_AND_LOGGING.md) for setting up Prometheus metrics and logging.
+
 ---
 
 ### GET /v1/models
@@ -64,6 +66,7 @@ curl https://llm.menezmethod.com/v1/models \
 {
   "object": "list",
   "data": [
+    { "id": "mlx-community/gpt-oss-120b-MXFP4-Q8", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
     { "id": "mlx-community/gpt-oss-20b-MXFP4-Q8", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
     { "id": "mlx-community/Llama-3.2-3B-Instruct-4bit", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
     { "id": "mlx-community/granite-3.3-2b-instruct-4bit", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
@@ -93,7 +96,7 @@ Generates a model response for the given conversation.
 | `frequency_penalty` | number | No | Frequency penalty (-2 to 2) |
 | `response_format` | object | No | `{"type": "json_object"}` for JSON mode |
 
-**Example — simple**
+**Example — simple** (default: 20B)
 
 ```bash
 curl https://llm.menezmethod.com/v1/chat/completions \
@@ -105,6 +108,8 @@ curl https://llm.menezmethod.com/v1/chat/completions \
     "max_tokens": 100
   }'
 ```
+
+Use `mlx-community/gpt-oss-120b-MXFP4-Q8` in the request body when you want the 120B model.
 
 ```json
 {

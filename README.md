@@ -4,6 +4,8 @@ A lightweight, secure API gateway that exposes local LLM servers to the internet
 
 Run models on your own hardware. Access them from anywhere.
 
+**Current setup:** inferencia is hosted on **Coolify** and works out of the box. Default chat model is **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B); use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when explicitly requested. Metrics and logging are always on.
+
 ## Why
 
 Cloud inference is expensive. If you have capable hardware (M4 Pro, 128GB), you can serve local models at ~150 tokens/second for free. **inferencia** sits between the internet and your local LLM servers, adding authentication, rate limiting, and observability — making your local setup behave like a hosted API provider.
@@ -68,18 +70,23 @@ export INFERENCIA_HOST=0.0.0.0              # Required in Docker so the app is r
 export INFERENCIA_API_KEYS=sk-key1,sk-key2  # Overrides keys_file (use in Docker/Coolify)
 export INFERENCIA_BACKEND_URL=http://192.168.0.x:11973  # Override first backend URL (e.g. MLX on another host)
 export INFERENCIA_LOG_LEVEL=debug
+export INFERENCIA_LOG_CLOUD_FORMAT=gcp              # optional: GCP-friendly severity
+export INFERENCIA_OTEL_ENABLED=true                 # optional: OpenTelemetry tracing
+export INFERENCIA_OTEL_ENDPOINT=http://localhost:4318
 ```
 
 ## API
 
 ### Chat Completions
 
+Default model: **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B). Use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when you need the larger model.
+
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-oss-20b-MXFP4-Q8",
+    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -91,7 +98,7 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-oss-20b-MXFP4-Q8",
+    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": true
   }'
@@ -104,7 +111,7 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-oss-20b-MXFP4-Q8",
+    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
     "messages": [{"role": "user", "content": "What is the weather in SF?"}],
     "tools": [{
       "type": "function",
@@ -135,7 +142,7 @@ curl http://localhost:8080/v1/embeddings \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gpt-oss-20b-MXFP4-Q8",
+    "model": "mlx-community/Qwen3-Embedding-4B-4bit-DWQ",
     "input": "Hello world"
   }'
 ```
@@ -250,7 +257,53 @@ If `/health/ready` fails, the container cannot reach the MLX host at `INFERENCIA
 
 ## Observability
 
-inferencia ships with structured logging, Prometheus metrics, and a full Grafana/Loki/Alertmanager stack.
+inferencia ships with **Prometheus metrics** (always on), **structured logging**, optional **OpenTelemetry** tracing, and **GCP/cloud-friendly log formats** for easy integration with Google Cloud Logging and other backends. A full Grafana/Loki/Alertmanager stack is provided in `deploy/`.
+
+**Full setup guide:** [docs/METRICS_AND_LOGGING.md](docs/METRICS_AND_LOGGING.md) — step-by-step metrics scraping, logging (JSON, GCP), and optional tracing.
+
+### Prometheus (metrics — always on)
+
+The `/metrics` endpoint (no auth) is **always enabled**. It exposes HTTP and backend metrics; no config or feature flag required.
+
+- **Local run**: With inferencia on your machine, scrape `http://127.0.0.1:8080/metrics` or use the deploy stack: run `docker compose -f deploy/docker-compose.observability.yaml up -d` and point Prometheus at `host.docker.internal:8080` (the `inferencia-local` job in `deploy/prometheus/prometheus.yaml` does this).
+- **Quick check**: `curl -s http://127.0.0.1:8080/metrics | head -20`
+- **Production**: Scrape your inferencia host:port; the deploy stack also includes an `inferencia` job for when the app runs in the same Compose network.
+
+### OpenTelemetry (optional)
+
+Enable OTLP HTTP tracing for distributed traces (e.g. Jaeger, Grafana Tempo, Google Cloud Trace):
+
+```yaml
+# config.yaml
+observability:
+  otel_enabled: true
+  otel_endpoint: "http://localhost:4318"   # OTLP HTTP collector (e.g. otelcol)
+  otel_service_name: "inferencia"
+```
+
+Or via env:
+
+```bash
+export INFERENCIA_OTEL_ENABLED=true
+export INFERENCIA_OTEL_ENDPOINT=http://localhost:4318
+export INFERENCIA_OTEL_SERVICE_NAME=inferencia
+```
+
+When enabled, every HTTP request is traced; export to any OTLP-capable backend. Use `https://` endpoints in production (TLS); `http://` uses insecure transport for local collectors.
+
+### GCP / cloud logging
+
+For **Google Cloud Logging** (or any consumer expecting a `severity` field), set `log.cloud_format` so JSON logs include a `severity` string (`DEBUG`, `INFO`, `WARNING`, `ERROR`) and optionally a `resource` object:
+
+```yaml
+log:
+  level: "info"
+  format: "json"
+  cloud_format: "gcp"                # add severity only
+  # cloud_format: "gcp_with_resource" # add severity + resource (generic_task)
+```
+
+Env: `INFERENCIA_LOG_CLOUD_FORMAT=gcp` or `gcp_with_resource`. Works with GCP’s log ingestion (e.g. Cloud Run, GKE, or VM logging agent).
 
 ### Canonical log lines
 
@@ -366,6 +419,7 @@ inferencia/
 │   └── alertmanager/            # Alertmanager config (Slack, email, etc.)
 ├── docs/
 │   ├── AGENT_ONBOARDING.md     # API quickstart guide for clients and agents
+│   ├── METRICS_AND_LOGGING.md  # Metrics and logging setup guide
 │   └── openapi.yaml            # OpenAPI 3.1 spec (reference copy)
 ├── internal/
 │   ├── config/config.go         # YAML + env configuration
