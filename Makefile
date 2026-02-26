@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean fmt vet openapi
+.PHONY: build run test lint clean fmt vet openapi smoke-prod
 
 BINARY := inferencia
 PKG    := ./...
@@ -31,3 +31,7 @@ fmt:
 clean:
 	rm -f $(BINARY)
 	go clean
+
+# Smoke test your deployment (required: INFERENCIA_SMOKE_BASE_URL; optional: INFERENCIA_E2E_API_KEY for /v1/models)
+smoke-prod:
+	@./scripts/smoke-prod.sh

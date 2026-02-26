@@ -1,17 +1,17 @@
 # inferencia API
 
-OpenAI-compatible REST API for chat completions, embeddings, and model management. **inferencia** is hosted on Coolify. Default chat model: **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B); use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when requested.
+OpenAI-compatible REST API for chat completions, embeddings, and model management. Deploy your own instance (e.g. with Coolify). Default chat model: **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B); use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when requested.
 
-**Base URL**
+**Base URL** — Replace with your deployment URL.
 
 ```
-https://llm.menezmethod.com/v1
+https://your-inferencia.example.com/v1
 ```
 
 **Interactive docs**
 
 ```
-https://llm.menezmethod.com/docs
+https://your-inferencia.example.com/docs
 ```
 
 ## Authentication
@@ -58,7 +58,7 @@ Default: 10 requests/second, burst of 20.
 Returns available models from the inference backend.
 
 ```bash
-curl https://llm.menezmethod.com/v1/models \
+curl https://your-inferencia.example.com/v1/models \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -99,7 +99,7 @@ Generates a model response for the given conversation.
 **Example — simple** (default: 20B)
 
 ```bash
-curl https://llm.menezmethod.com/v1/chat/completions \
+curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -129,7 +129,7 @@ Use `mlx-community/gpt-oss-120b-MXFP4-Q8` in the request body when you want the 
 **Example — streaming**
 
 ```bash
-curl https://llm.menezmethod.com/v1/chat/completions \
+curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -144,7 +144,7 @@ Responds with `Content-Type: text/event-stream`. Each event is `data: {json}\n\n
 **Example — tool calling**
 
 ```bash
-curl https://llm.menezmethod.com/v1/chat/completions \
+curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -178,7 +178,7 @@ Generates embedding vectors for text input.
 | `encoding_format` | string | No | `"float"` (default) or `"base64"` |
 
 ```bash
-curl https://llm.menezmethod.com/v1/embeddings \
+curl https://your-inferencia.example.com/v1/embeddings \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -205,7 +205,7 @@ Any OpenAI-compatible SDK works by changing the base URL.
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://llm.menezmethod.com/v1",
+    base_url="https://your-inferencia.example.com/v1",
     api_key="YOUR_API_KEY",
 )
 
@@ -222,7 +222,7 @@ print(response.choices[0].message.content)
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "https://llm.menezmethod.com/v1",
+  baseURL: "https://your-inferencia.example.com/v1",
   apiKey: "YOUR_API_KEY",
 });
 
@@ -238,7 +238,7 @@ console.log(response.choices[0].message.content);
 For any client that reads the standard OpenAI env vars:
 
 ```bash
-export OPENAI_BASE_URL=https://llm.menezmethod.com/v1
+export OPENAI_BASE_URL=https://your-inferencia.example.com/v1
 export OPENAI_API_KEY=YOUR_API_KEY
 ```
 
@@ -269,5 +269,5 @@ All errors follow the OpenAI error envelope format:
 
 The full OpenAPI 3.1 spec is available at:
 
-- **YAML**: [https://llm.menezmethod.com/openapi.yaml](https://llm.menezmethod.com/openapi.yaml)
-- **Swagger UI**: [https://llm.menezmethod.com/docs](https://llm.menezmethod.com/docs)
+- **YAML**: `https://your-inferencia.example.com/openapi.yaml`
+- **Swagger UI**: `https://your-inferencia.example.com/docs`

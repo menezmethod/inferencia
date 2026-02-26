@@ -2,11 +2,17 @@
 /inferencia
 /bin/
 
-# Config and secrets
+# Config and secrets (never commit)
 config.yaml
 keys.txt
 .env
 .env.local
+.env.*
+!.env.example
+!.env.gh.secrets.example
+.env.gh.secrets
+*.pem
+*.key
 
 # IDE / editor
 .idea/
