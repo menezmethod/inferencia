@@ -14,8 +14,9 @@ paths = [
   '''env\.coolify\.example''',
   '''\.env\.gh\.secrets\.example''',
   '''RELEASE_NOTES\.md''',
+  '''docs/AGENT_ONBOARDING\.md''',
 ]
-# Allow placeholder API keys and example IPs in docs/code
+# Allow placeholder API keys and example content (curl-auth-header, etc.)
 regexes = [
   '''sk-your-''',
   '''sk-PASTE_''',
@@ -24,6 +25,8 @@ regexes = [
   '''sk-connectivity''',
   '''sk-env-''',
   '''sk-valid-key''',
+  '''Bearer YOUR_API_KEY''',
+  '''Authorization: Bearer YOUR_API_KEY''',
   '''192\.168\.0\.x''',
   '''your-inferencia\.example\.com''',
 ]
