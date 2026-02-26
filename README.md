@@ -426,7 +426,10 @@ inferencia/
 │   ├── TESTING_PLAN.md         # Testing plan and CI
 │   └── openapi.yaml            # OpenAPI 3.1 spec (reference copy)
 ├── scripts/
+│   ├── run-integration-and-newman.sh  # Start app, run Ginkgo integration + Newman
 │   └── smoke-prod.sh           # Production smoke test (health, ready, metrics)
+├── integration/                 # Ginkgo integration suite (spins up app, hits API)
+├── postman/                     # Postman collection + env for Newman (API contract tests)
 ├── internal/
 │   ├── config/config.go         # YAML + env configuration
 │   ├── server/server.go         # HTTP server & route registration
@@ -448,12 +451,15 @@ inferencia/
 
 ## Testing
 
-CI runs on every push and PR: **build**, **test** (with `-race`), and **vet** must pass. See [docs/TESTING_PLAN.md](docs/TESTING_PLAN.md) for the full testing plan. To configure GitHub (branch protection, Coolify deploy webhook, smoke-test secrets) in one go: copy `.env.gh.secrets.example` to `.env.gh.secrets`, fill in values, and run `./scripts/setup-repo.sh` (requires `gh auth login`). See [docs/PUBLISHING.md](docs/PUBLISHING.md) for sanitization and going public. [SECURITY.md](SECURITY.md) describes how to report vulnerabilities.
+CI runs on every push and PR: **build**, **test** (with `-race`), and **vet** must pass. See [docs/TESTING_PLAN.md](docs/TESTING_PLAN.md) for the full testing plan. To configure GitHub (branch protection, Coolify deploy webhook, smoke-test secrets) in one go: copy `.env.gh.secrets.example` to `.env.gh.secrets`, fill in values, and run `./scripts/setup-repo.sh` (requires `gh auth login`). See [docs/PUBLISHING.md](docs/PUBLISHING.md) for sanitization and going public. For a reusable CI/CD and hosting path across apps, see [docs/CI_CD_AND_HOSTING_PLAYBOOK.md](docs/CI_CD_AND_HOSTING_PLAYBOOK.md). [SECURITY.md](SECURITY.md) describes how to report vulnerabilities.
 
 ```bash
-make test        # All tests (Ginkgo BDD + std) with race detector
+make test        # Unit tests (Ginkgo/Gomega) with race detector
+make integration # Integration tests: spin up app, run Ginkgo suite + Newman (Postman CLI); must pass in CI
 make smoke-prod  # Smoke test your deployment (set INFERENCIA_SMOKE_BASE_URL; optional INFERENCIA_E2E_API_KEY for /v1/models)
 ```
+
+The **integration** suite lives in `integration/` and uses Ginkgo to start the app and hit real endpoints; **Newman** runs the Postman collection in `postman/` (same flows). Both run in CI and must pass before merge.
 
 Unit tests use **Ginkgo** and **Gomega** for BDD-style specs in `internal/handler`, `internal/config`, and `internal/auth` (e.g. `Describe("Health", func() { It("returns 200 and status ok", ...) })`).
 

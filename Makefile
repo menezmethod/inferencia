@@ -1,4 +1,4 @@
-.PHONY: build run test lint clean fmt vet openapi smoke-prod check-sensitive
+.PHONY: build run test test-v test-coverage integration lint clean fmt vet openapi smoke-prod check-sensitive
 
 BINARY := inferencia
 PKG    := ./...
@@ -22,6 +22,11 @@ test:
 test-v:
 	go test -race -count=1 -v $(PKG)
 
+# Coverage: run tests with -coverprofile, then print summary. Unit tests use Ginkgo/Gomega.
+test-coverage:
+	go test -count=1 -coverprofile=coverage.out $(PKG)
+	go tool cover -func=coverage.out
+
 lint: vet
 	@which golangci-lint > /dev/null 2>&1 || echo "Install golangci-lint: https://golangci-lint.run/usage/install/"
 	golangci-lint run $(PKG)
@@ -35,6 +40,10 @@ fmt:
 clean:
 	rm -f $(BINARY)
 	go clean
+
+# Integration tests: build app, start it, run Ginkgo integration suite and (if Node present) Newman. Must pass in CI.
+integration:
+	@./scripts/run-integration-and-newman.sh
 
 # Smoke test your deployment (required: INFERENCIA_SMOKE_BASE_URL; optional: INFERENCIA_E2E_API_KEY for /v1/models)
 smoke-prod:

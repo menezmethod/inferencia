@@ -2,6 +2,9 @@
 /inferencia
 /bin/
 
+# Test coverage
+coverage.out
+
 # Config and secrets (never commit)
 config.yaml
 keys.txt

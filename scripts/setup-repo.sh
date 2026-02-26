@@ -22,12 +22,12 @@ if [[ "$VISIBILITY" != "PUBLIC" ]]; then
   echo "Repo is $VISIBILITY. Branch protection requires a public repo (free) or GitHub Team/Pro (private)."
   echo "To enable: gh repo edit --visibility public   then re-run this script."
 fi
-echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Integration (Docker smoke)","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
+echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Lint","Integration","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
   | gh api repos/:owner/:repo/branches/main/protection -X PUT -H "Accept: application/vnd.github+json" --input - \
   --silent 2>/dev/null || {
   echo "Branch protection failed (private repo on free tier, or status checks not yet run)."
   echo "  If private: make repo public (gh repo edit --visibility public) or upgrade to GitHub Team/Pro."
-  echo "  Or set manually: Settings → Branches → Add rule for 'main' → Require status checks: Build & test, Integration (Docker smoke), Sensitive data"
+  echo "  Or set manually: Settings → Branches → Add rule for 'main' → Require status checks: Build & test, Lint, Integration, Sensitive data"
 }
 
 # 2. Vulnerability alerts (Dependabot)

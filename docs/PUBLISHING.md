@@ -2,6 +2,8 @@
 
 This guide covers sanitizing the repository and configuring GitHub so it is safe to make public and acts as the source of truth for deployment.
 
+**Reusable path for other apps:** For a single playbook that covers CI/CD, auto deploy (Coolify), sensitive-data checks, and branch protection so every app feels consistent, see [CI_CD_AND_HOSTING_PLAYBOOK.md](CI_CD_AND_HOSTING_PLAYBOOK.md).
+
 ---
 
 ## 1. Sanitization checklist
@@ -70,12 +72,12 @@ Require CI to pass before merging; prevent force-push and deletion of `main`:
 
 ```bash
 # Require job names from .github/workflows/ci.yml (run after at least one CI run so these exist)
-echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Integration (Docker smoke)","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
+echo '{"required_status_checks":{"strict":true,"contexts":["Build & test","Lint","Integration","Sensitive data"]},"enforce_admins":true,"required_pull_request_reviews":null,"restrictions":null,"allow_force_pushes":false,"allow_deletions":false}' \
   | gh api repos/:owner/:repo/branches/main/protection -X PUT -H "Accept: application/vnd.github+json" --input -
 ```
 Or use `./scripts/setup-repo.sh` to apply this and set secrets in one go (script will warn if repo is private and protection fails).
 
-Required status checks (job names from `.github/workflows/ci.yml`): **Build & test**, **Integration (Docker smoke)**, and **Sensitive data**. All must pass before a PR can be merged. The Sensitive data job runs a blocklist check (patterns from **SENSITIVE_BLOCKLIST** secret; when unset the check is skipped and passes) and gitleaks; see `scripts/check-sensitive-data.sh` and `.gitleaks.toml`. On blocklist match, the pattern and matched content are never echoed (masked for public logs). (Do **not** require **Connectivity (backend)** unless you set `INFERENCIA_CI_BACKEND_URL` and want it as a gate.) **Trigger Coolify deploy** is skipped on PRs and runs only on push to `main`. Or set the same in the GitHub UI: **Settings → Branches → Add rule** for `main` → Require status checks → select the three jobs.
+Required status checks (job names from `.github/workflows/ci.yml`): **Build & test**, **Lint**, **Integration**, and **Sensitive data**. All must pass before a PR can be merged. The Sensitive data job runs a blocklist check (patterns from **SENSITIVE_BLOCKLIST** secret; when unset the check is skipped and passes) and gitleaks; see `scripts/check-sensitive-data.sh` and `.gitleaks.toml`. On blocklist match, the pattern and matched content are never echoed (masked for public logs). (Do **not** require **Connectivity (backend)** unless you set `INFERENCIA_CI_BACKEND_URL` and want it as a gate.) **Trigger Coolify deploy** is skipped on PRs and runs only on push to `main`. Or set the same in the GitHub UI: **Settings → Branches → Add rule** for `main` → Require status checks → select the four jobs.
 
 ### 2.3 Security and dependency updates
 
@@ -114,16 +116,16 @@ From the repo root, after `gh auth login`:
 
 ## 3. CI/CD as source of truth
 
-- **CI** (`.github/workflows/ci.yml`) runs on every push and pull request: **Build & test** (build, test with `-race`, vet), **Lint** (golangci-lint), **Integration (Docker smoke)** (build image, run container, curl health/metrics/docs and assert auth for `/v1/models`), and optionally **Connectivity (backend)** (see below). No production URL or secrets are required for CI unless you enable optional steps.
-- **Branch protection** — Require **Build & test**, **Lint**, and **Integration (Docker smoke)** so `main` only accepts changes that pass those checks. Do not require **Connectivity (backend)** unless you set the optional backend secret and want it as a merge gate.
-- **Deploy only after checks** — **Coolify Auto Deploy** on `main` + **branch protection**: `main` always auto-deploys when it’s updated; the only way to update `main` is to merge a PR that passed CI (Build & test, Lint, Integration). So deploys are always from CI-passing code. No webhook or secrets. See [Coolify: main auto-deploys](#coolify-main-auto-deploys) below.
+- **CI** (`.github/workflows/ci.yml`) runs on every push and pull request: **Build & test** (build, test with `-race`, vet), **Lint** (golangci-lint), **Sensitive data** (blocklist + gitleaks), **Integration** (build image, run container, curl health/metrics/docs and assert auth for `/v1/models`), and optionally **Connectivity (backend)** (see below). No production URL or secrets are required for CI unless you enable optional steps.
+- **Branch protection** — Require **Build & test**, **Lint**, **Integration**, and **Sensitive data** so `main` only accepts changes that pass those checks. Do not require **Connectivity (backend)** unless you set the optional backend secret and want it as a merge gate.
+- **Deploy only after checks** — **Coolify Auto Deploy** on `main` + **branch protection**: `main` always auto-deploys when it’s updated; the only way to update `main` is to merge a PR that passed CI (Build & test, Lint, Integration, Sensitive data). So deploys are always from CI-passing code. No webhook or secrets. See [Coolify: main auto-deploys](#coolify-main-auto-deploys) below.
 - **API contract** — Handler and integration tests assert that `/v1/chat/completions`, `/v1/models`, and `/v1/embeddings` behave as documented; OpenAPI spec is the contract. Changes that break request/response shapes should be caught by tests before merge.
 - **Production smoke** — The **Smoke (production)** workflow (`.github/workflows/smoke-prod.yml`) runs on schedule (daily) and via **workflow_dispatch**. Set **INFERENCIA_SMOKE_BASE_URL** (and optionally **INFERENCIA_E2E_API_KEY**) in repo secrets; if unset, the run is skipped. You can also run `scripts/smoke-prod.sh` locally or in Coolify post-deploy.
 
 ### Coolify: main auto-deploys
 
 1. **In Coolify** — Leave **Auto Deploy** on for your inferencia app (deploy on push to the connected branch, e.g. `main`). Pushes to `main` trigger a deploy automatically.
-2. **In GitHub** — Use **branch protection** on `main`: require status checks **Build & test**, **Lint**, and **Integration (Docker smoke)** before merge. The only way code gets onto `main` is via a merged PR that passed CI, so Coolify only ever deploys CI-passing code. No webhook, no auth, no deploy-related secrets.
+2. **In GitHub** — Use **branch protection** on `main`: require status checks **Build & test**, **Lint**, **Integration**, and **Sensitive data** before merge. The only way code gets onto `main` is via a merged PR that passed CI, so Coolify only ever deploys CI-passing code. No webhook, no auth, no deploy-related secrets.
 
 **Optional**  
 - **Connectivity check** — Add **INFERENCIA_CI_BACKEND_URL** (and optionally **INFERENCIA_CI_API_KEYS**) in GitHub secrets so CI verifies the app can reach your backend before merge (and optionally require that job in branch protection).  

@@ -105,6 +105,13 @@ log:
 			Expect(cfg.Backends[0].URL).To(Equal("http://192.168.0.x:11973"))
 		})
 	})
+
+	When("config file path does not exist", func() {
+		It("returns an error", func() {
+			_, err := Load("/nonexistent/config.yaml")
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })
 
 var _ = Describe("Validation", func() {
@@ -184,6 +191,30 @@ var _ = Describe("Validation", func() {
 		It("returns an error", func() {
 			cfg := Defaults()
 			cfg.Log.CloudFormat = "aws"
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+
+	When("backend has no type", func() {
+		It("returns an error", func() {
+			cfg := Defaults()
+			cfg.Backends[0].Type = ""
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+
+	When("backend has no url", func() {
+		It("returns an error", func() {
+			cfg := Defaults()
+			cfg.Backends[0].URL = ""
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+
+	When("rate limit burst is zero", func() {
+		It("returns an error", func() {
+			cfg := Defaults()
+			cfg.RateLimit.Burst = 0
 			Expect(validate(cfg)).To(HaveOccurred())
 		})
 	})

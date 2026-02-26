@@ -43,14 +43,14 @@ Auth: `Authorization: Bearer <key>`. Keys from file or `INFERENCIA_API_KEYS` env
 - `internal/openapi` — Embedded spec; copied from `docs/openapi.yaml` at build.
 - `internal/version` — Version and Commit (ldflags).
 - `docs/openapi.yaml` — Source of truth for API; copied to `internal/openapi/spec.yaml` before build.
-- Tests: Ginkgo/Gomega in `internal/handler`, `internal/config`, `internal/auth` (`*_suite_test.go`, `*_spec_test.go`).
+- Tests: Ginkgo/Gomega unit tests in `internal/*` (`*_suite_test.go`, `*_spec_test.go`); integration suite in `integration/` (spins up the app, then runs specs). Postman collection in `postman/`; run with Newman in CI or locally (`npx newman run postman/inferencia-api.postman_collection.json -e postman/...`). Unit and integration tests must pass in CI.
 
 ## Run and test
 
 - **Local**: `make build` then `./inferencia -config config.yaml` or env only. `make run` uses config.yaml.
 - **Docker**: `docker build -t inferencia .` then run with `INFERENCIA_HOST=0.0.0.0`, `INFERENCIA_PORT=8080`, `INFERENCIA_BACKEND_URL`, `INFERENCIA_API_KEYS`.
-- **Tests**: `make test` (Ginkgo + race). `make smoke-prod` runs `scripts/smoke-prod.sh` (set `INFERENCIA_SMOKE_BASE_URL` to your deployment, e.g. `https://your-inferencia.example.com`; optional `INFERENCIA_E2E_API_KEY`).
-- **Lint**: `make lint` (golangci-lint) for local use; CI runs Build & test, Integration (Docker smoke), Sensitive data (blocklist + gitleaks).
+- **Tests**: `make test` (Ginkgo + race). `make integration` runs the Ginkgo integration suite (spins up the app) and Newman (Postman CLI) if Node is installed; CI runs both and they must pass. `make smoke-prod` runs `scripts/smoke-prod.sh` (set `INFERENCIA_SMOKE_BASE_URL`; optional `INFERENCIA_E2E_API_KEY`).
+- **Lint**: `make lint` (golangci-lint) for local use; CI runs Build & test, Lint, Integration, Sensitive data (blocklist + gitleaks).
 
 ## Sensitive data and docs
 
@@ -59,7 +59,6 @@ Auth: `Authorization: Bearer <key>`. Keys from file or `INFERENCIA_API_KEYS` env
 - In **AGENTS.md**, **README**, and **docs**: never use real production URLs, real API keys, or real internal hostnames. Use the placeholders above.
 
 ## References
-pu
 - **OpenAPI**: `docs/openapi.yaml` (and `/openapi.yaml` at runtime).
 - **Client setup**: `docs/AGENT_ONBOARDING.md`.
 - **Metrics/logging**: `docs/METRICS_AND_LOGGING.md`.

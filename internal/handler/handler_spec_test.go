@@ -87,6 +87,17 @@ var _ = Describe("Models", func() {
 			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		})
 	})
+
+	When("no primary backend is registered", func() {
+		It("returns 503 BackendUnavailable", func() {
+			reg := backend.NewRegistry()
+			h := Models(reg, discardLogger())
+			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		})
+	})
 })
 
 var _ = Describe("ChatCompletions", func() {
@@ -97,7 +108,9 @@ var _ = Describe("ChatCompletions", func() {
 				chatResp: &backend.ChatResponse{
 					ID:      "chatcmpl-test",
 					Object:  "chat.completion",
+					Model:   "test",
 					Choices: []backend.Choice{{Index: 0, Message: &backend.Message{Role: "assistant", Content: json.RawMessage(`"Hello!"`)}, FinishReason: &finish}},
+					Usage:   &backend.Usage{PromptTokens: 2, CompletionTokens: 3},
 				},
 			}
 			reg := newTestRegistry(mock)
@@ -153,6 +166,34 @@ var _ = Describe("ChatCompletions", func() {
 			respBody := rec.Body.String()
 			Expect(respBody).To(ContainSubstring("data: "))
 			Expect(respBody).To(ContainSubstring("[DONE]"))
+		})
+	})
+
+	When("no primary backend is registered", func() {
+		It("returns 503 BackendUnavailable", func() {
+			reg := backend.NewRegistry() // empty
+			h := ChatCompletions(reg, discardLogger())
+			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		})
+	})
+
+	When("stream is true but ResponseWriter is not a Flusher", func() {
+		It("returns 500 Internal", func() {
+			reg := newTestRegistry(&mockBackend{})
+			h := ChatCompletions(reg, discardLogger())
+			body := `{"model":"test","messages":[{"role":"user","content":"hi"}],"stream":true}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			// Wrap so that w.(http.Flusher) fails in handleStream
+			type noFlusher struct{ http.ResponseWriter }
+			h.ServeHTTP(noFlusher{rec}, req)
+			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
 		})
 	})
 })
@@ -221,6 +262,35 @@ var _ = Describe("Embeddings", func() {
 			h.ServeHTTP(rec, req)
 			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		})
+	})
+
+	When("no primary backend is registered", func() {
+		It("returns 503 BackendUnavailable", func() {
+			reg := backend.NewRegistry()
+			h := Embeddings(reg, discardLogger())
+			body := `{"model":"test","input":"hi"}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		})
+	})
+})
+
+var _ = Describe("VersionInfo", func() {
+	It("returns 200 with version in JSON", func() {
+		h := VersionInfo()
+		req := httptest.NewRequest(http.MethodGet, "/version", nil)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(rec.Header().Get("Content-Type")).To(Equal("application/json"))
+		Expect(rec.Header().Get("Cache-Control")).To(Equal("no-store"))
+		var resp map[string]string
+		Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+		Expect(resp).To(HaveKey("version"))
 	})
 })
 

@@ -54,6 +54,25 @@ sk-key-three
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	When("path is empty and INFERENCIA_API_KEYS is not set", func() {
+		It("returns an error", func() {
+			_ = os.Unsetenv("INFERENCIA_API_KEYS")
+			_, err := NewKeyStore("")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no keys file path"))
+		})
+	})
+
+	When("INFERENCIA_API_KEYS is set but only commas or whitespace", func() {
+		It("returns an error", func() {
+			_ = os.Setenv("INFERENCIA_API_KEYS", "  , , ")
+			defer func() { _ = os.Unsetenv("INFERENCIA_API_KEYS") }()
+			_, err := NewKeyStore("")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no valid keys"))
+		})
+	})
 })
 
 var _ = Describe("Validate", func() {
