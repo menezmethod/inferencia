@@ -54,12 +54,12 @@ Auth: `Authorization: Bearer <key>`. Keys from file or `INFERENCIA_API_KEYS` env
 
 ## Sensitive data and docs
 
-- **Blocklist** (`scripts/check-sensitive-data.sh`): CI fails if blocklisted strings (e.g. real prod hostnames) appear anywhere in the repo. Add new entries to the blocklist array when you add new “do not commit” patterns.
+- **Blocklist** (`scripts/check-sensitive-data.sh`): Patterns from SENSITIVE_BLOCKLIST (secret/env); if unset, skipped. On match, pattern/content masked in logs. CI fails if blocklisted strings (e.g. real prod hostnames) appear anywhere in the repo.
 - **Gitleaks** (`.gitleaks.toml`): CI runs gitleaks with allowlisted example files and placeholder patterns. Keep placeholders in docs: `your-inferencia.example.com`, `sk-your-key`, `192.168.0.x`.
 - In **AGENTS.md**, **README**, and **docs**: never use real production URLs, real API keys, or real internal hostnames. Use the placeholders above.
 
 ## References
-
+pu
 - **OpenAPI**: `docs/openapi.yaml` (and `/openapi.yaml` at runtime).
 - **Client setup**: `docs/AGENT_ONBOARDING.md`.
 - **Metrics/logging**: `docs/METRICS_AND_LOGGING.md`.

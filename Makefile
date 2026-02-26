@@ -40,6 +40,6 @@ clean:
 smoke-prod:
 	@./scripts/smoke-prod.sh
 
-# Fail if blocklisted strings (e.g. real prod URLs) appear in repo. CI runs this + gitleaks.
+# Blocklist check: set SENSITIVE_BLOCKLIST (newline-separated patterns) to enable; when unset, passes. CI runs this + gitleaks.
 check-sensitive:
 	@./scripts/check-sensitive-data.sh

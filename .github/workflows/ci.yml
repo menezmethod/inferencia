@@ -55,6 +55,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Blocklist check (no real prod URLs / hostnames in repo)
+        env:
+          SENSITIVE_BLOCKLIST: ${{ secrets.SENSITIVE_BLOCKLIST }}
         run: ./scripts/check-sensitive-data.sh
 
       - name: Gitleaks (no accidental secrets)
