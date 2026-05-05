@@ -1,0 +1,167 @@
+# CI: build, test, vet, integration, sensitive-data check, optional connectivity. Require Build & test, Integration, Sensitive data before merging (branch protection).
+# Lint (golangci-lint) is not run in CI: the action's binary targets Go 1.24 and fails with go 1.26. Run `make lint` locally.
+# With Coolify Auto Deploy on main, main always auto-deploys; only CI-passing code can be merged, so every deploy is from a green build.
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Copy OpenAPI spec
+        run: cp docs/openapi.yaml internal/openapi/spec.yaml
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Unit tests (Ginkgo/Gomega; must pass for merge)
+        run: |
+          go test -race -count=1 -coverprofile=coverage.out -v ./...
+          go tool cover -func=coverage.out
+
+      - name: Vet
+        run: go vet ./...
+
+  sensitive-data:
+    name: Sensitive data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Blocklist check (no real prod URLs / hostnames in repo)
+        env:
+          SENSITIVE_BLOCKLIST: ${{ secrets.SENSITIVE_BLOCKLIST }}
+        run: ./scripts/check-sensitive-data.sh
+
+      - name: Gitleaks (no accidental secrets)
+        run: |
+          curl -sSfL https://github.com/zricethezav/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz | tar -xz -C /tmp
+          /tmp/gitleaks detect --no-git --redact -v --config .gitleaks.toml
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+
+      - name: Set up Node (for Newman)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Ginkgo integration + Newman
+        run: |
+          chmod +x scripts/run-integration-and-newman.sh
+          ./scripts/run-integration-and-newman.sh
+
+      - name: Copy OpenAPI spec
+        run: cp docs/openapi.yaml internal/openapi/spec.yaml
+
+      - name: Build Docker image
+        run: docker build -t inferencia:ci .
+
+      - name: Docker smoke (health, version, metrics, docs, auth)
+        run: |
+          docker run -d --name inferencia-ci \
+            -e INFERENCIA_HOST=0.0.0.0 \
+            -e INFERENCIA_PORT=8080 \
+            -e INFERENCIA_API_KEYS=sk-ci-test-key \
+            -p 8080:8080 \
+            inferencia:ci
+          sleep 3
+          curl -sf http://localhost:8080/health
+          curl -sf http://localhost:8080/version
+          curl -sf http://localhost:8080/metrics | head -5
+          curl -sf -o /dev/null -w "%{http_code}" http://localhost:8080/docs | grep -q 200
+          curl -sf -o /dev/null -w "%{http_code}" http://localhost:8080/openapi.yaml | grep -q 200
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/v1/models)
+          test "$status" = "401" || (echo "expected 401, got $status" && exit 1)
+          status=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer sk-ci-test-key" http://localhost:8080/v1/models)
+          test "$status" = "503" || test "$status" = "200" || (echo "expected 503 or 200, got $status" && exit 1)
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f inferencia-ci 2>/dev/null || true
+
+  # Optional: verifies app can reach backend (e.g. MLX). Set INFERENCIA_CI_BACKEND_URL and INFERENCIA_CI_API_KEYS in repo secrets.
+  # Backend must be reachable from GitHub runners (e.g. tunnel or public test endpoint); otherwise leave unset and this job no-ops.
+  connectivity:
+    name: Connectivity (backend)
+    runs-on: ubuntu-latest
+    needs: integration
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy OpenAPI spec
+        run: cp docs/openapi.yaml internal/openapi/spec.yaml
+
+      - name: Build Docker image
+        run: docker build -t inferencia:ci .
+
+      - name: Check connectivity to backend
+        env:
+          BACKEND_URL: ${{ secrets.INFERENCIA_CI_BACKEND_URL }}
+          API_KEYS: ${{ secrets.INFERENCIA_CI_API_KEYS }}
+        run: |
+          if [ -z "$BACKEND_URL" ]; then
+            echo "INFERENCIA_CI_BACKEND_URL not set — skipping connectivity check"
+            exit 0
+          fi
+          KEY="${API_KEYS:-sk-connectivity-test}"
+          docker run -d --name inferencia-conn \
+            -e INFERENCIA_HOST=0.0.0.0 \
+            -e INFERENCIA_PORT=8080 \
+            -e INFERENCIA_BACKEND_URL="$BACKEND_URL" \
+            -e INFERENCIA_API_KEYS="$KEY" \
+            -p 8080:8080 \
+            inferencia:ci
+          sleep 5
+          status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health/ready)
+          docker rm -f inferencia-conn 2>/dev/null || true
+          if [ "$status" != "200" ]; then
+            echo "health/ready returned $status (expected 200) — app could not reach backend at INFERENCIA_CI_BACKEND_URL"
+            exit 1
+          fi
+          echo "Connectivity check passed: app reached backend"
+
+  # Optional: trigger Coolify via webhook when COOLIFY_WEBHOOK is set. Default: use Coolify Auto Deploy on main + branch protection (main always auto-deploys; only CI-passing code can be merged).
+  deploy:
+    name: Trigger Coolify deploy
+    runs-on: ubuntu-latest
+    needs: [build-and-test, integration, connectivity, sensitive-data]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    steps:
+      - name: Trigger Coolify deployment
+        env:
+          WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "COOLIFY_WEBHOOK not set — skipping deploy trigger (Coolify may use auto-deploy from branch instead)"
+            exit 0
+          fi
+          if [ -n "$TOKEN" ]; then
+            curl -sf -X GET "$WEBHOOK" -H "Authorization: Bearer $TOKEN"
+          else
+            curl -sf -X GET "$WEBHOOK"
+          fi
+          echo "Coolify deploy webhook triggered"

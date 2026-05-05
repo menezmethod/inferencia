@@ -11,12 +11,13 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Source and build (no CGO, stripped, reproducible)
+# Source and build (no CGO, stripped, reproducible). VERSION set in CI/release (e.g. v1.0.0).
+ARG VERSION=dev
 COPY . .
 RUN cp docs/openapi.yaml internal/openapi/spec.yaml
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -trimpath \
-    -ldflags="-s -w" \
+    -ldflags="-s -w -X github.com/menezmethod/inferencia/internal/version.Version=${VERSION}" \
     -o /inferencia \
     ./cmd/inferencia
 

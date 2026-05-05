@@ -20,8 +20,8 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://llm.menezmethod.com
-    description: Production
+  - url: https://your-inferencia.example.com
+    description: Your deployment (replace with your base URL)
   - url: http://localhost:8080
     description: Local development
 
@@ -118,7 +118,7 @@ paths:
               example:
                 status: unavailable
                 backend: mlx
-                error: "mlx health check: dial tcp 192.168.0.50:11973: connect: connection refused"
+                error: "mlx health check: dial tcp 192.168.0.x:11973: connect: connection refused"
 
   /v1/models:
     get:

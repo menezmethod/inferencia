@@ -34,9 +34,10 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *sl
 		)
 	}
 
-	// Health, docs, and metrics — no auth required.
+	// Health, docs, version, and metrics — no auth required.
 	mux.HandleFunc("GET /health", handler.Health())
 	mux.HandleFunc("GET /health/ready", handler.Ready(reg))
+	mux.HandleFunc("GET /version", handler.VersionInfo())
 	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPI())
 	mux.HandleFunc("GET /docs", handler.SwaggerUI())
 	mux.Handle("GET /metrics", promhttp.Handler())

@@ -1,26 +1,18 @@
-# Security Policy
+# Security
 
-## Supported Versions
+## Reporting a vulnerability
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x     | :white_check_mark: |
+If you believe you have found a security vulnerability, please report it responsibly:
 
-## Reporting a Vulnerability
+- **Do not** open a public GitHub issue.
+- Email the maintainers (see repository description or GitHub profile) with a clear description of the issue and steps to reproduce, or use GitHub’s [private vulnerability reporting](https://github.com/menezmethod/inferencia/security/advisories/new) if enabled.
 
-If you discover a security vulnerability, please report it responsibly:
+We will acknowledge receipt and work with you to understand and address the issue.
 
-1. **Do not** open a public GitHub issue.
-2. Email the maintainers directly or use a private security advisory.
-3. Include a description of the vulnerability and steps to reproduce.
-4. Allow reasonable time for a fix before public disclosure.
+## Security considerations for deployers
 
-We will acknowledge receipt within 48 hours and provide an initial assessment within 7 days.
-
-## Security Best Practices
-
-- **API keys**: Use strong keys (e.g. `openssl rand -hex 32`), prefix with `sk-`, never commit to version control.
-- **Secrets**: Store keys in environment variables or external secret managers; never in config files in the repo.
-- **HTTPS**: Always use HTTPS in production; inferencia relies on reverse proxies (Cloudflare, Coolify) for TLS termination.
-- **Rate limiting**: Defaults (10 req/s, burst 20) mitigate abuse; adjust via `INFERENCIA_RATELIMIT_RPS` and `INFERENCIA_RATELIMIT_BURST`.
-- **Backend exposure**: Keep MLX/Ollama backends on private networks; inferencia proxies requests with auth.
+- **API keys** — Use strong, random keys (e.g. `openssl rand -hex 32`). Store them only in environment variables or a file that is not committed to version control (e.g. `keys.txt` in `.gitignore`).
+- **Backend URL** — The LLM backend (e.g. MLX) should not be exposed directly to the internet. Run inferencia as the only public entrypoint; inferencia connects to the backend over a private network (e.g. LAN, Docker network).
+- **Metrics and docs** — `/metrics` and `/docs` are unauthenticated by design. If your deployment is public, put inferencia behind a reverse proxy and restrict or protect these paths if needed.
+- **Secrets in config** — Never commit `config.yaml`, `keys.txt`, or `.env` containing real credentials. Use `config.example.yaml` and `keys.example.txt` as templates only.
+- **Dependencies** — Keep Go modules and Docker base images up to date. Dependabot and CI help catch known issues.

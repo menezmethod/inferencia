@@ -11,7 +11,7 @@ func OpenAPI() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-yaml")
 		w.Header().Set("Cache-Control", "public, max-age=3600")
-		w.Write(openapi.Spec)
+		_, _ = w.Write(openapi.Spec)
 	}
 }
 
@@ -68,6 +68,6 @@ func SwaggerUI() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "public, max-age=3600")
-		w.Write([]byte(html))
+		_, _ = w.Write([]byte(html))
 	}
 }
