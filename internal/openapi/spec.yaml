@@ -143,18 +143,18 @@ paths:
               example:
                 object: list
                 data:
-                  - id: mlx-community/gpt-oss-120b-MXFP4-Q8
+                  - id: qwen3:32b
                     object: model
                     created: 0
-                    owned_by: mlx-knife-2.0
-                  - id: mlx-community/gpt-oss-20b-MXFP4-Q8
+                    owned_by: ollama
+                  - id: qwen3:6b-bf16
                     object: model
                     created: 0
-                    owned_by: mlx-knife-2.0
+                    owned_by: ollama
                   - id: mlx-community/Llama-3.2-3B-Instruct-4bit
                     object: model
                     created: 0
-                    owned_by: mlx-knife-2.0
+                    owned_by: ollama
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -187,7 +187,7 @@ paths:
               simple:
                 summary: Simple message
                 value:
-                  model: mlx-community/gpt-oss-20b-MXFP4-Q8
+                  model: qwen3:6b-bf16
                   messages:
                     - role: user
                       content: "What is 2+2?"
@@ -195,7 +195,7 @@ paths:
               streaming:
                 summary: Streaming
                 value:
-                  model: mlx-community/gpt-oss-20b-MXFP4-Q8
+                  model: qwen3:6b-bf16
                   messages:
                     - role: user
                       content: "Hello!"
@@ -203,7 +203,7 @@ paths:
               tool_calling:
                 summary: Tool calling
                 value:
-                  model: mlx-community/gpt-oss-20b-MXFP4-Q8
+                  model: qwen3:6b-bf16
                   messages:
                     - role: user
                       content: "What is the weather in SF?"
@@ -236,7 +236,7 @@ paths:
                 id: chatcmpl-abc123
                 object: chat.completion
                 created: 1677858242
-                model: mlx-community/gpt-oss-20b-MXFP4-Q8
+                model: qwen3:6b-bf16
                 choices:
                   - index: 0
                     message:
@@ -352,7 +352,7 @@ components:
         id:
           type: string
           description: Unique model identifier.
-          example: mlx-community/gpt-oss-20b-MXFP4-Q8
+          example: qwen3:6b-bf16
         object:
           type: string
           enum: [model]
@@ -373,7 +373,7 @@ components:
         model:
           type: string
           description: Model ID to use. Must match an ID from `/v1/models`.
-          example: mlx-community/gpt-oss-20b-MXFP4-Q8
+          example: qwen3:6b-bf16
         messages:
           type: array
           minItems: 1
@@ -724,6 +724,6 @@ components:
             $ref: "#/components/schemas/ApiError"
           example:
             error:
-              message: "Backend mlx is currently unavailable."
+              message: "Backend ollama is currently unavailable."
               type: backend_error
               code: backend_unavailable

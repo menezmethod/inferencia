@@ -4,7 +4,7 @@ A lightweight, secure API gateway that exposes local LLM servers to the internet
 
 Run models on your own hardware. Access them from anywhere.
 
-**Current setup:** inferencia is hosted on **Coolify** and works out of the box. Default chat model is **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B); use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when explicitly requested. Metrics and logging are always on.
+**Current setup:** inferencia is hosted on **Coolify** and works out of the box. Default chat model is **qwen3:6b-bf16** when the request omits `model`. Metrics and logging are always on.
 
 ## Why
 
@@ -14,7 +14,7 @@ Cloud inference is expensive. If you have capable hardware (M4 Pro, 128GB), you 
 
 - **OpenAI-compatible API** — `/v1/chat/completions`, `/v1/models`, `/v1/embeddings` with full tool calling support
 - **Streaming** — Server-Sent Events (SSE) for real-time token streaming
-- **Multi-backend** — Pluggable backend system. MLX (MSTY) ships ready; Ollama stubbed for v2
+- **Multi-backend** — Pluggable backend system. MLX and Ollama backends are supported
 - **Bearer token auth** — File-based or environment variable API keys
 - **Token bucket rate limiting** — Per-key with configurable burst
 - **Structured logging** — JSON or text via `slog`
@@ -48,9 +48,9 @@ auth:
   keys_file: "./keys.txt"
 
 backends:
-  - name: "mlx"
-    type: "mlx"
-    url: "http://localhost:11973"
+  - name: "ollama"
+    type: "ollama"
+    url: "http://localhost:11434"
     timeout: 60s
 
 ratelimit:
@@ -68,7 +68,7 @@ Environment variables override file values (prefix `INFERENCIA_`):
 export INFERENCIA_PORT=9000
 export INFERENCIA_HOST=0.0.0.0              # Required in Docker so the app is reachable
 export INFERENCIA_API_KEYS=sk-key1,sk-key2  # Overrides keys_file (use in Docker/Coolify)
-export INFERENCIA_BACKEND_URL=http://192.168.0.x:11973  # Override first backend URL (e.g. MLX on another host)
+export INFERENCIA_BACKEND_URL=http://192.168.0.x:11434  # Override first backend URL (e.g. Ollama on another host)
 export INFERENCIA_LOG_LEVEL=debug
 export INFERENCIA_LOG_CLOUD_FORMAT=gcp              # optional: GCP-friendly severity
 export INFERENCIA_OTEL_ENABLED=true                 # optional: OpenTelemetry tracing
@@ -79,14 +79,14 @@ export INFERENCIA_OTEL_ENDPOINT=http://localhost:4318
 
 ### Chat Completions
 
-Default model: **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B). Use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when you need the larger model.
+Default model fallback (when `model` is omitted): **qwen3:6b-bf16**.
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+    "model": "qwen3:6b-bf16",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -98,7 +98,7 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+    "model": "qwen3:6b-bf16",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": true
   }'
@@ -111,7 +111,7 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+    "model": "qwen3:6b-bf16",
     "messages": [{"role": "user", "content": "What is the weather in SF?"}],
     "tools": [{
       "type": "function",
@@ -215,7 +215,7 @@ Then use `https://llm.yourdomain.com` (or whatever hostname you chose). See [Clo
 |-------|--------|
 | Tunnel URL returns 502 / connection refused | inferencia must be running and listening on the same host/port as in `--url` (e.g. `http://127.0.0.1:8080`). |
 | `/health` works but `/v1/models` returns 401 | Use the `Authorization: Bearer sk-your-key` header; key must be in `keys.txt` or `INFERENCIA_API_KEYS`. |
-| Readiness fails (`/health/ready` not ok) | Backend (e.g. MLX at `localhost:11973`) must be reachable; start your LLM server or fix `config.yaml` `backends[].url`. |
+| Readiness fails (`/health/ready` not ok) | Backend (e.g. Ollama at `localhost:11434`) must be reachable; start your LLM server or fix `config.yaml` `backends[].url`. |
 | Port already in use | Change `server.port` in `config.yaml` or set `INFERENCIA_PORT`, and use that port in `cloudflared tunnel --url`. |
 
 ## Deploy on Coolify (e.g. Raspberry Pi → MLX on M4)
@@ -426,7 +426,7 @@ inferencia/
 │   ├── server/server.go         # HTTP server & route registration
 │   ├── handler/                 # HTTP handlers (chat, models, embeddings, health, docs)
 │   ├── middleware/               # Auth, rate limiting, logging, recovery, metrics
-│   ├── backend/                  # Backend interface, MLX adapter, Ollama stub
+│   ├── backend/                  # Backend interface, MLX adapter, Ollama adapter
 │   ├── auth/keystore.go         # API key storage & validation
 │   ├── apierror/error.go       # OpenAI-compatible error responses
 │   └── openapi/spec.yaml       # Embedded OpenAPI spec (served at /openapi.yaml)
@@ -463,7 +463,7 @@ docker build -t inferencia:latest .
 docker run --rm -p 8080:8080 \
   -e INFERENCIA_HOST=0.0.0.0 \
   -e INFERENCIA_PORT=8080 \
-  -e INFERENCIA_BACKEND_URL=http://host.docker.internal:11973 \
+  -e INFERENCIA_BACKEND_URL=http://host.docker.internal:11434 \
   -e INFERENCIA_API_KEYS=sk-your-key \
   inferencia:latest
 ```

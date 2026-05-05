@@ -13,20 +13,22 @@ import (
 
 // mockBackend implements backend.Backend for testing.
 type mockBackend struct {
-	chatResp   *backend.ChatResponse
-	chatErr    error
-	modelsResp *backend.ModelsResponse
-	modelsErr  error
-	embedResp  *backend.EmbedResponse
-	embedErr   error
-	healthErr  error
+	chatResp    *backend.ChatResponse
+	chatErr     error
+	lastChatReq backend.ChatRequest
+	modelsResp  *backend.ModelsResponse
+	modelsErr   error
+	embedResp   *backend.EmbedResponse
+	embedErr    error
+	healthErr   error
 }
 
 func (m *mockBackend) Name() string { return "mock" }
 
 func (m *mockBackend) Health(context.Context) error { return m.healthErr }
 
-func (m *mockBackend) ChatCompletion(_ context.Context, _ backend.ChatRequest) (*backend.ChatResponse, error) {
+func (m *mockBackend) ChatCompletion(_ context.Context, req backend.ChatRequest) (*backend.ChatResponse, error) {
+	m.lastChatReq = req
 	return m.chatResp, m.chatErr
 }
 
@@ -102,6 +104,39 @@ func TestChatCompletionsEmptyMessages(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", rec.Code)
+	}
+}
+
+func TestChatCompletionsUsesDefaultModelWhenMissing(t *testing.T) {
+	finish := "stop"
+	mock := &mockBackend{
+		chatResp: &backend.ChatResponse{
+			ID:     "chatcmpl-test",
+			Object: "chat.completion",
+			Choices: []backend.Choice{
+				{
+					Index:        0,
+					Message:      &backend.Message{Role: "assistant", Content: json.RawMessage(`"Hello!"`)},
+					FinishReason: &finish,
+				},
+			},
+		},
+	}
+	reg := newTestRegistry(mock)
+	handler := ChatCompletions(reg, discardLogger())
+
+	body := `{"messages":[{"role":"user","content":"hi"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+	if mock.lastChatReq.Model != defaultChatModel {
+		t.Fatalf("model = %q, want %q", mock.lastChatReq.Model, defaultChatModel)
 	}
 }
 

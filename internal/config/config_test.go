@@ -19,8 +19,8 @@ func TestDefaults(t *testing.T) {
 	if len(cfg.Backends) != 1 {
 		t.Fatalf("default backends count = %d, want 1", len(cfg.Backends))
 	}
-	if cfg.Backends[0].Type != "mlx" {
-		t.Errorf("default backend type = %q, want mlx", cfg.Backends[0].Type)
+	if cfg.Backends[0].Type != "ollama" {
+		t.Errorf("default backend type = %q, want ollama", cfg.Backends[0].Type)
 	}
 }
 
@@ -80,9 +80,9 @@ func TestEnvOverrides(t *testing.T) {
 server:
   port: 8080
 backends:
-  - name: "mlx"
-    type: "mlx"
-    url: "http://localhost:11973"
+  - name: "ollama"
+    type: "ollama"
+    url: "http://localhost:11434"
     timeout: 60s
 ratelimit:
   requests_per_second: 10

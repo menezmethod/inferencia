@@ -17,12 +17,12 @@ import (
 
 // Config holds the complete application configuration.
 type Config struct {
-	Server         Server         `yaml:"server"`
-	Auth           Auth           `yaml:"auth"`
-	Backends       []Backend      `yaml:"backends"`
-	RateLimit      RateLimit      `yaml:"ratelimit"`
-	Log            Log            `yaml:"log"`
-	Observability  Observability  `yaml:"observability"`
+	Server        Server        `yaml:"server"`
+	Auth          Auth          `yaml:"auth"`
+	Backends      []Backend     `yaml:"backends"`
+	RateLimit     RateLimit     `yaml:"ratelimit"`
+	Log           Log           `yaml:"log"`
+	Observability Observability `yaml:"observability"`
 }
 
 // Server configures the HTTP listener.
@@ -61,8 +61,8 @@ type Log struct {
 
 // Observability configures optional OpenTelemetry and cloud logging.
 type Observability struct {
-	OTelEnabled bool   `yaml:"otel_enabled"`
-	OTelEndpoint string `yaml:"otel_endpoint"` // OTLP HTTP endpoint, e.g. http://localhost:4318/v1/traces
+	OTelEnabled     bool   `yaml:"otel_enabled"`
+	OTelEndpoint    string `yaml:"otel_endpoint"` // OTLP HTTP endpoint, e.g. http://localhost:4318/v1/traces
 	OTelServiceName string `yaml:"otel_service_name"`
 }
 
@@ -80,9 +80,9 @@ func Defaults() Config {
 		},
 		Backends: []Backend{
 			{
-				Name:    "mlx",
-				Type:    "mlx",
-				URL:     "http://localhost:11973",
+				Name:    "ollama",
+				Type:    "ollama",
+				URL:     "http://localhost:11434",
 				Timeout: 60 * time.Second,
 			},
 		},
