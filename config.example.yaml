@@ -1,7 +1,7 @@
 # inferencia — configuration
 #
 # inferencia is the API gateway in front of local LLM backends.
-# Default chat model fallback (when request.model is omitted): qwen3:6b-bf16.
+# Default chat model fallback (when request.model is omitted): qwen3.6:35b-a3b-coding-bf16.
 # Copy this file to config.yaml and adjust as needed.
 # Environment variables (INFERENCIA_*) override file values.
 

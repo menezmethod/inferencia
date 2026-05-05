@@ -12,7 +12,7 @@ import (
 	"github.com/menezmethod/inferencia/internal/middleware"
 )
 
-const defaultChatModel = "qwen3:6b-bf16"
+const defaultChatModel = "qwen3.6:35b-a3b-coding-bf16"
 
 // ChatCompletions handles chat completion requests, supporting both
 // standard JSON responses and streaming SSE responses.

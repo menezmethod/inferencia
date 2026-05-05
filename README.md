@@ -4,7 +4,7 @@ A lightweight, secure API gateway that exposes local LLM servers to the internet
 
 Run models on your own hardware. Access them from anywhere.
 
-**Default chat model:** **qwen3:6b-bf16** when the request omits `model`. Deploy with Coolify or any container platform; metrics and logging are always on.
+**Default chat model:** **qwen3.6:35b-a3b-coding-bf16** when the request omits `model`. Deploy with Coolify or any container platform; metrics and logging are always on.
 
 ## Why
 
@@ -79,14 +79,14 @@ export INFERENCIA_OTEL_ENDPOINT=http://localhost:4318
 
 ### Chat Completions
 
-Default model fallback (when `model` is omitted): **qwen3:6b-bf16**.
+Default model fallback (when `model` is omitted): **qwen3.6:35b-a3b-coding-bf16**.
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3:6b-bf16",
+    "model": "qwen3.6:35b-a3b-coding-bf16",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -98,7 +98,7 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3:6b-bf16",
+    "model": "qwen3.6:35b-a3b-coding-bf16",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": true
   }'
@@ -111,7 +111,7 @@ curl http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-your-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3:6b-bf16",
+    "model": "qwen3.6:35b-a3b-coding-bf16",
     "messages": [{"role": "user", "content": "What is the weather in SF?"}],
     "tools": [{
       "type": "function",
