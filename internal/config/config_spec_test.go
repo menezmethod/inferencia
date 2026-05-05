@@ -16,10 +16,10 @@ var _ = Describe("Defaults", func() {
 		Expect(cfg.Server.Host).To(Equal("127.0.0.1"))
 	})
 
-	It("includes one MLX backend", func() {
+	It("includes one Ollama backend", func() {
 		cfg := Defaults()
 		Expect(cfg.Backends).To(HaveLen(1))
-		Expect(cfg.Backends[0].Type).To(Equal("mlx"))
+		Expect(cfg.Backends[0].Type).To(Equal("ollama"))
 	})
 })
 
@@ -66,9 +66,9 @@ log:
 server:
   port: 8080
 backends:
-  - name: "mlx"
-    type: "mlx"
-    url: "http://localhost:11973"
+  - name: "ollama"
+    type: "ollama"
+    url: "http://localhost:11434"
     timeout: 60s
 ratelimit:
   requests_per_second: 10
@@ -96,13 +96,13 @@ log:
 
 	When("INFERENCIA_BACKEND_URL is set", func() {
 		It("overrides the first backend URL", func() {
-			_ = os.Setenv("INFERENCIA_BACKEND_URL", "http://192.168.0.x:11973")
+			_ = os.Setenv("INFERENCIA_BACKEND_URL", "http://192.168.0.x:11434")
 			defer func() { _ = os.Unsetenv("INFERENCIA_BACKEND_URL") }()
 
 			cfg, err := Load("")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cfg.Backends).NotTo(BeEmpty())
-			Expect(cfg.Backends[0].URL).To(Equal("http://192.168.0.x:11973"))
+			Expect(cfg.Backends[0].URL).To(Equal("http://192.168.0.x:11434"))
 		})
 	})
 

@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// MLX implements the Backend interface for MSTY's MLX server.
+// MLX implements the Backend interface for MLX servers.
 // Since MLX already speaks the OpenAI-compatible format, this adapter
 // is a thin proxy: it forwards requests and passes responses through
 // with minimal transformation.

@@ -1,6 +1,7 @@
 # inferencia — configuration
 #
-# inferencia is the API gateway in front of MLX. Default chat model: gpt-oss-20b-MXFP4-Q8; use gpt-oss-120b-MXFP4-Q8 when requested.
+# inferencia is the API gateway in front of local LLM backends.
+# Default chat model fallback (when request.model is omitted): qwen3.6:35b-a3b-coding-bf16.
 # Copy this file to config.yaml and adjust as needed.
 # Environment variables (INFERENCIA_*) override file values.
 
@@ -14,16 +15,10 @@ auth:
   keys_file: "./keys.txt" # One API key per line. Lines starting with # are ignored.
 
 backends:
-  - name: "mlx"
-    type: "mlx"
-    url: "http://localhost:11973"
+  - name: "ollama"
+    type: "ollama"
+    url: "http://localhost:11434"
     timeout: 60s
-
-  # Uncomment to add Ollama (not yet implemented in v1):
-  # - name: "ollama"
-  #   type: "ollama"
-  #   url: "http://localhost:11434"
-  #   timeout: 60s
 
 ratelimit:
   requests_per_second: 10

@@ -3,7 +3,7 @@
 //
 // Each backend adapter translates between the OpenAI-compatible API
 // format and the backend's native protocol. Backends that already
-// speak OpenAI format (like MLX via MSTY) need minimal translation.
+// speak OpenAI format (like MLX) need minimal translation.
 package backend
 
 import (
@@ -106,18 +106,18 @@ func (r *Registry) All() []Backend {
 // ChatRequest represents an OpenAI chat completion request.
 // All fields are passed through to the backend, including tool calling fields.
 type ChatRequest struct {
-	Model            string          `json:"model"`
-	Messages         []Message       `json:"messages"`
-	Temperature      *float64        `json:"temperature,omitempty"`
-	TopP             *float64        `json:"top_p,omitempty"`
-	N                *int            `json:"n,omitempty"`
-	MaxTokens        *int            `json:"max_tokens,omitempty"`
-	MaxCompletionTokens *int         `json:"max_completion_tokens,omitempty"`
-	Stop             json.RawMessage `json:"stop,omitempty"`
-	Stream           bool            `json:"stream"`
-	PresencePenalty  *float64        `json:"presence_penalty,omitempty"`
-	FrequencyPenalty *float64        `json:"frequency_penalty,omitempty"`
-	User             string          `json:"user,omitempty"`
+	Model               string          `json:"model"`
+	Messages            []Message       `json:"messages"`
+	Temperature         *float64        `json:"temperature,omitempty"`
+	TopP                *float64        `json:"top_p,omitempty"`
+	N                   *int            `json:"n,omitempty"`
+	MaxTokens           *int            `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int            `json:"max_completion_tokens,omitempty"`
+	Stop                json.RawMessage `json:"stop,omitempty"`
+	Stream              bool            `json:"stream"`
+	PresencePenalty     *float64        `json:"presence_penalty,omitempty"`
+	FrequencyPenalty    *float64        `json:"frequency_penalty,omitempty"`
+	User                string          `json:"user,omitempty"`
 
 	// Tool calling support (OpenAI function calling protocol).
 	Tools      []Tool          `json:"tools,omitempty"`
