@@ -20,6 +20,7 @@ type Config struct {
 	Server        Server        `yaml:"server"`
 	Auth          Auth          `yaml:"auth"`
 	Backends      []Backend     `yaml:"backends"`
+	TTSBackends   []TTSBackend  `yaml:"tts_backends"`
 	RateLimit     RateLimit     `yaml:"ratelimit"`
 	Log           Log           `yaml:"log"`
 	Observability Observability `yaml:"observability"`
@@ -42,6 +43,13 @@ type Auth struct {
 type Backend struct {
 	Name    string        `yaml:"name"`
 	Type    string        `yaml:"type"`
+	URL     string        `yaml:"url"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
+// TTSBackend configures a single TTS backend.
+type TTSBackend struct {
+	Name    string        `yaml:"name"`
 	URL     string        `yaml:"url"`
 	Timeout time.Duration `yaml:"timeout"`
 }
@@ -172,6 +180,36 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("INFERENCIA_BACKEND_URL"); v != "" && len(cfg.Backends) > 0 {
 		cfg.Backends[0].URL = strings.TrimSpace(v)
+	}
+
+	// TTS backend env vars.
+	if v := os.Getenv("INFERENCIA_KOKORO_URL"); v != "" {
+		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+			Name:    "kokoro",
+			URL:     strings.TrimSpace(v),
+			Timeout: 30 * time.Second,
+		})
+	}
+	if v := os.Getenv("INFERENCIA_CHATTERBOX_URL"); v != "" {
+		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+			Name:    "chatterbox",
+			URL:     strings.TrimSpace(v),
+			Timeout: 30 * time.Second,
+		})
+	}
+	if v := os.Getenv("INFERENCIA_MISOTTS_URL"); v != "" {
+		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+			Name:    "misotts",
+			URL:     strings.TrimSpace(v),
+			Timeout: 30 * time.Second,
+		})
+	}
+	if v := os.Getenv("INFERENCIA_ELEVENLABS_URL"); v != "" {
+		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+			Name:    "elevenlabs",
+			URL:     strings.TrimSpace(v),
+			Timeout: 30 * time.Second,
+		})
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/menezmethod/inferencia/internal/config"
 	"github.com/menezmethod/inferencia/internal/handler"
 	"github.com/menezmethod/inferencia/internal/middleware"
+	"github.com/menezmethod/inferencia/internal/router"
 )
 
 // New creates a configured *http.Server with all routes and middleware wired.
@@ -54,6 +55,42 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *sl
 		WriteTimeout: cfg.Server.WriteTimeout,
 		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
+}
+
+// RegisterTTSRoutes adds the TTS audio/speech endpoint to an existing server's mux.
+// It requires a router registry with TTS backends registered.
+// The server must have been created with http.NewServeMux() and expose its mux.
+//
+// Usage:
+//
+//	srv := server.New(cfg, reg, ks, logger)
+//	server.RegisterTTSRoutes(srv, rtr, logger)
+func RegisterTTSRoutes(srv *http.Server, rtr *router.Registry, logger *slog.Logger, protected func(http.Handler) http.Handler) {
+	if srv.Handler == nil || rtr == nil {
+		return
+	}
+	if mux, ok := srv.Handler.(*http.ServeMux); ok {
+		mux.Handle("POST /v1/audio/speech", protected(handler.Audio(rtr, logger)))
+	}
+}
+
+// RegisterTTSRoute is a convenience function that registers the TTS endpoint
+// on the given mux using the standard protected middleware chain.
+// It creates its own protected middleware from the given config and key store,
+// making it usable directly from main when a router registry is available.
+func RegisterTTSRoute(mux *http.ServeMux, rtr *router.Registry, ks *auth.KeyStore, cfg config.Config, logger *slog.Logger) {
+	rl := middleware.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
+	protected := func(h http.Handler) http.Handler {
+		return middleware.Chain(h,
+			middleware.RequestID(),
+			middleware.Recover(logger),
+			middleware.Metrics(),
+			middleware.Logging(logger),
+			middleware.Auth(ks),
+			middleware.RateLimit(rl),
+		)
+	}
+	mux.Handle("POST /v1/audio/speech", protected(handler.Audio(rtr, logger)))
 }
 
 // Shutdown gracefully shuts down the server with the given context.
