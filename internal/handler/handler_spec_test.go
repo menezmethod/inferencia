@@ -140,6 +140,30 @@ var _ = Describe("ChatCompletions", func() {
 		})
 	})
 
+	When("model is missing", func() {
+		It("uses the default chat model fallback", func() {
+			mock := &mockBackend{
+				chatResp: &backend.ChatResponse{
+					ID:      "chatcmpl-test",
+					Object:  "chat.completion",
+					Model:   defaultChatModel,
+					Choices: []backend.Choice{{Index: 0, Message: &backend.Message{Role: "assistant", Content: json.RawMessage(`"Hello!"`)}, FinishReason: func() *string { s := "stop"; return &s }()}},
+				},
+			}
+			reg := newTestRegistry(mock)
+			h := ChatCompletions(reg, discardLogger())
+			body := `{"messages":[{"role":"user","content":"hi"}]}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(mock.lastChatReq.Model).To(Equal(defaultChatModel))
+		})
+	})
+
 	When("body is invalid JSON", func() {
 		It("returns 400", func() {
 			reg := newTestRegistry(&mockBackend{})

@@ -17,12 +17,13 @@ import (
 
 // Config holds the complete application configuration.
 type Config struct {
-	Server         Server         `yaml:"server"`
-	Auth           Auth           `yaml:"auth"`
-	Backends       []Backend      `yaml:"backends"`
-	RateLimit      RateLimit      `yaml:"ratelimit"`
-	Log            Log            `yaml:"log"`
-	Observability  Observability  `yaml:"observability"`
+	Server        Server        `yaml:"server"`
+	Auth          Auth          `yaml:"auth"`
+	Backends      []Backend     `yaml:"backends"`
+	TTSBackends   []TTSBackend  `yaml:"tts_backends"`
+	RateLimit     RateLimit     `yaml:"ratelimit"`
+	Log           Log           `yaml:"log"`
+	Observability Observability `yaml:"observability"`
 }
 
 // Server configures the HTTP listener.
@@ -46,6 +47,13 @@ type Backend struct {
 	Timeout time.Duration `yaml:"timeout"`
 }
 
+// TTSBackend configures a single TTS backend.
+type TTSBackend struct {
+	Name    string        `yaml:"name"`
+	URL     string        `yaml:"url"`
+	Timeout time.Duration `yaml:"timeout"`
+}
+
 // RateLimit configures the token bucket rate limiter.
 type RateLimit struct {
 	RequestsPerSecond float64 `yaml:"requests_per_second"`
@@ -61,8 +69,8 @@ type Log struct {
 
 // Observability configures optional OpenTelemetry and cloud logging.
 type Observability struct {
-	OTelEnabled bool   `yaml:"otel_enabled"`
-	OTelEndpoint string `yaml:"otel_endpoint"` // OTLP HTTP endpoint, e.g. http://localhost:4318/v1/traces
+	OTelEnabled     bool   `yaml:"otel_enabled"`
+	OTelEndpoint    string `yaml:"otel_endpoint"` // OTLP HTTP endpoint, e.g. http://localhost:4318/v1/traces
 	OTelServiceName string `yaml:"otel_service_name"`
 }
 
@@ -80,9 +88,9 @@ func Defaults() Config {
 		},
 		Backends: []Backend{
 			{
-				Name:    "mlx",
-				Type:    "mlx",
-				URL:     "http://localhost:11973",
+				Name:    "ollama",
+				Type:    "ollama",
+				URL:     "http://localhost:11434",
 				Timeout: 60 * time.Second,
 			},
 		},
@@ -172,6 +180,36 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("INFERENCIA_BACKEND_URL"); v != "" && len(cfg.Backends) > 0 {
 		cfg.Backends[0].URL = strings.TrimSpace(v)
+	}
+
+	// TTS backend env vars.
+	if v := os.Getenv("INFERENCIA_KOKORO_URL"); v != "" {
+		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+			Name:    "kokoro",
+			URL:     strings.TrimSpace(v),
+			Timeout: 30 * time.Second,
+		})
+	}
+	if v := os.Getenv("INFERENCIA_CHATTERBOX_URL"); v != "" {
+		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+			Name:    "chatterbox",
+			URL:     strings.TrimSpace(v),
+			Timeout: 30 * time.Second,
+		})
+	}
+	if v := os.Getenv("INFERENCIA_MISOTTS_URL"); v != "" {
+		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+			Name:    "misotts",
+			URL:     strings.TrimSpace(v),
+			Timeout: 30 * time.Second,
+		})
+	}
+	if v := os.Getenv("INFERENCIA_ELEVENLABS_URL"); v != "" {
+		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+			Name:    "elevenlabs",
+			URL:     strings.TrimSpace(v),
+			Timeout: 30 * time.Second,
+		})
 	}
 }
 

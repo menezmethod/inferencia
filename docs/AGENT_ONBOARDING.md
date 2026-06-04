@@ -1,6 +1,6 @@
 # inferencia API
 
-OpenAI-compatible REST API for chat completions, embeddings, and model management. Deploy your own instance (e.g. with Coolify). Default chat model: **mlx-community/gpt-oss-20b-MXFP4-Q8** (20B); use **mlx-community/gpt-oss-120b-MXFP4-Q8** (120B) when requested.
+OpenAI-compatible REST API for chat completions, embeddings, and model management. Deploy your own instance (e.g. with Coolify). Default chat model fallback (when `model` is omitted): **qwen3.6:35b-a3b-coding-bf16**.
 
 **Base URL** — Replace with your deployment URL.
 
@@ -66,8 +66,8 @@ curl https://your-inferencia.example.com/v1/models \
 {
   "object": "list",
   "data": [
-    { "id": "mlx-community/gpt-oss-120b-MXFP4-Q8", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
-    { "id": "mlx-community/gpt-oss-20b-MXFP4-Q8", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
+    { "id": "qwen3:32b", "object": "model", "created": 0, "owned_by": "ollama" },
+    { "id": "qwen3.6:35b-a3b-coding-bf16", "object": "model", "created": 0, "owned_by": "ollama" },
     { "id": "mlx-community/Llama-3.2-3B-Instruct-4bit", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
     { "id": "mlx-community/granite-3.3-2b-instruct-4bit", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
     { "id": "mlx-community/Qwen3-Embedding-4B-4bit-DWQ", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" }
@@ -103,20 +103,20 @@ curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+    "model": "qwen3.6:35b-a3b-coding-bf16",
     "messages": [{"role": "user", "content": "What is 2+2?"}],
     "max_tokens": 100
   }'
 ```
 
-Use `mlx-community/gpt-oss-120b-MXFP4-Q8` in the request body when you want the 120B model.
+Use `qwen3.6:35b-a3b-coding-bf16` (or another Ollama model tag available in your local runtime).
 
 ```json
 {
   "id": "chatcmpl-abc123",
   "object": "chat.completion",
   "created": 1677858242,
-  "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+  "model": "qwen3.6:35b-a3b-coding-bf16",
   "choices": [{
     "index": 0,
     "message": { "role": "assistant", "content": "2+2 equals 4." },
@@ -133,7 +133,7 @@ curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+    "model": "qwen3.6:35b-a3b-coding-bf16",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": true
   }'
@@ -148,7 +148,7 @@ curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/gpt-oss-20b-MXFP4-Q8",
+    "model": "qwen3.6:35b-a3b-coding-bf16",
     "messages": [{"role": "user", "content": "What is the weather in SF?"}],
     "tools": [{
       "type": "function",
@@ -210,7 +210,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="mlx-community/gpt-oss-20b-MXFP4-Q8",
+    model="qwen3.6:35b-a3b-coding-bf16",
     messages=[{"role": "user", "content": "Hello!"}],
 )
 print(response.choices[0].message.content)
@@ -227,7 +227,7 @@ const client = new OpenAI({
 });
 
 const response = await client.chat.completions.create({
-  model: "mlx-community/gpt-oss-20b-MXFP4-Q8",
+  model: "qwen3.6:35b-a3b-coding-bf16",
   messages: [{ role: "user", content: "Hello!" }],
 });
 console.log(response.choices[0].message.content);
