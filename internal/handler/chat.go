@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/menezmethod/inferencia/internal/apierror"
 	"github.com/menezmethod/inferencia/internal/backend"
 	"github.com/menezmethod/inferencia/internal/middleware"
 )
+
+const defaultChatModel = "qwen3.6:35b-a3b-coding-bf16"
 
 // ChatCompletions handles chat completion requests, supporting both
 // standard JSON responses and streaming SSE responses.
@@ -26,6 +29,9 @@ func ChatCompletions(reg *backend.Registry, logger *slog.Logger) http.HandlerFun
 		if len(req.Messages) == 0 {
 			apierror.Write(w, apierror.InvalidParam("messages", "messages is required and must not be empty"))
 			return
+		}
+		if strings.TrimSpace(req.Model) == "" {
+			req.Model = defaultChatModel
 		}
 
 		b, err := reg.Primary()
