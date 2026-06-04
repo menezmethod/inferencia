@@ -3,7 +3,7 @@
 //
 // Each backend adapter translates between the OpenAI-compatible API
 // format and the backend's native protocol. Backends that already
-// speak OpenAI format (like MLX via MSTY) need minimal translation.
+// speak OpenAI format (like MLX) need minimal translation.
 package backend
 
 import (
@@ -17,8 +17,23 @@ import (
 // ErrBackendNotFound is returned when a requested backend doesn't exist.
 var ErrBackendNotFound = errors.New("backend not found")
 
-// Backend represents a local LLM inference server.
-type Backend interface {
+// --- Per-kind interfaces ---
+
+// Probe is the minimal interface every backend must implement:
+// a name identifier and a health check.
+type Probe interface {
+	// Name returns the backend's identifier.
+	Name() string
+
+	// Health checks whether the backend is reachable and operational.
+	Health(ctx context.Context) error
+}
+
+// ChatBackend handles chat completion requests (both streaming and non-streaming)
+// and model listing.
+type ChatBackend interface {
+	Probe
+
 	// ChatCompletion sends a non-streaming chat completion request.
 	ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error)
 
@@ -29,14 +44,40 @@ type Backend interface {
 
 	// ListModels returns the available models from this backend.
 	ListModels(ctx context.Context) (*ModelsResponse, error)
+}
+
+// EmbedBackend handles embedding generation requests.
+type EmbedBackend interface {
+	Probe
 
 	// CreateEmbedding generates embeddings for the given input.
 	CreateEmbedding(ctx context.Context, req EmbedRequest) (*EmbedResponse, error)
+}
 
-	// Health checks whether the backend is reachable and operational.
+// TTSBackend handles text-to-speech synthesis and voice listing.
+type TTSBackend interface {
+	Probe
+
+	// Synthesize converts text to audio.
+	Synthesize(ctx context.Context, req TTSRequest) (*TTSResponse, error)
+
+	// Voices returns the available voices from this TTS backend.
+	Voices(ctx context.Context) ([]Voice, error)
+}
+
+// Backend is the legacy composite interface for backward compatibility.
+// It combines ChatBackend and EmbedBackend.
+type Backend interface {
+	// Chat
+	ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error)
+	ChatCompletionStream(ctx context.Context, req ChatRequest, send StreamFunc) error
+	ListModels(ctx context.Context) (*ModelsResponse, error)
+
+	// Embed
+	CreateEmbedding(ctx context.Context, req EmbedRequest) (*EmbedResponse, error)
+
+	// Probe
 	Health(ctx context.Context) error
-
-	// Name returns the backend's identifier.
 	Name() string
 }
 
@@ -106,18 +147,18 @@ func (r *Registry) All() []Backend {
 // ChatRequest represents an OpenAI chat completion request.
 // All fields are passed through to the backend, including tool calling fields.
 type ChatRequest struct {
-	Model            string          `json:"model"`
-	Messages         []Message       `json:"messages"`
-	Temperature      *float64        `json:"temperature,omitempty"`
-	TopP             *float64        `json:"top_p,omitempty"`
-	N                *int            `json:"n,omitempty"`
-	MaxTokens        *int            `json:"max_tokens,omitempty"`
-	MaxCompletionTokens *int         `json:"max_completion_tokens,omitempty"`
-	Stop             json.RawMessage `json:"stop,omitempty"`
-	Stream           bool            `json:"stream"`
-	PresencePenalty  *float64        `json:"presence_penalty,omitempty"`
-	FrequencyPenalty *float64        `json:"frequency_penalty,omitempty"`
-	User             string          `json:"user,omitempty"`
+	Model               string          `json:"model"`
+	Messages            []Message       `json:"messages"`
+	Temperature         *float64        `json:"temperature,omitempty"`
+	TopP                *float64        `json:"top_p,omitempty"`
+	N                   *int            `json:"n,omitempty"`
+	MaxTokens           *int            `json:"max_tokens,omitempty"`
+	MaxCompletionTokens *int            `json:"max_completion_tokens,omitempty"`
+	Stop                json.RawMessage `json:"stop,omitempty"`
+	Stream              bool            `json:"stream"`
+	PresencePenalty     *float64        `json:"presence_penalty,omitempty"`
+	FrequencyPenalty    *float64        `json:"frequency_penalty,omitempty"`
+	User                string          `json:"user,omitempty"`
 
 	// Tool calling support (OpenAI function calling protocol).
 	Tools      []Tool          `json:"tools,omitempty"`
@@ -221,4 +262,30 @@ type Embedding struct {
 	Object    string    `json:"object"`
 	Index     int       `json:"index"`
 	Embedding []float64 `json:"embedding"`
+}
+
+// --- TTS types ---
+
+// TTSRequest represents an OpenAI-compatible text-to-speech request.
+type TTSRequest struct {
+	Model          string  `json:"model"`
+	Input          string  `json:"input"`
+	Voice          string  `json:"voice"`
+	ResponseFormat string  `json:"response_format,omitempty"` // wav, mp3, opus, flac
+	Speed          float64 `json:"speed,omitempty"`
+}
+
+// TTSResponse represents the result of a text-to-speech synthesis.
+type TTSResponse struct {
+	Audio      []byte
+	Format     string // Content-Type
+	DurationMs int
+}
+
+// Voice represents a TTS voice option.
+type Voice struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Gender   string `json:"gender,omitempty"`
+	Language string `json:"language,omitempty"`
 }
