@@ -161,4 +161,23 @@ var _ = Describe("Integration", func() {
 			Expect(resp.StatusCode).To(BeElementOf(http.StatusOK, http.StatusServiceUnavailable))
 		})
 	})
+
+	Describe("GET /health/status", func() {
+		It("returns per-service breakdown with correct structure", func() {
+			resp, err := http.Get(baseURL + "/health/status")
+			Expect(err).NotTo(HaveOccurred())
+			defer resp.Body.Close()
+			Expect(resp.StatusCode).To(BeElementOf(http.StatusOK, http.StatusServiceUnavailable))
+			var body map[string]interface{}
+			Expect(json.NewDecoder(resp.Body).Decode(&body)).NotTo(HaveOccurred())
+			Expect(body).To(HaveKey("status"))
+			Expect(body).To(HaveKey("version"))
+			Expect(body).To(HaveKey("services"))
+			Expect(body["status"]).To(BeElementOf("healthy", "degraded"))
+			Expect(body["version"]).NotTo(BeEmpty())
+			services, ok := body["services"].(map[string]interface{})
+			Expect(ok).To(BeTrue())
+			Expect(services).NotTo(BeEmpty())
+		})
+	})
 })

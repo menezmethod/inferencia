@@ -27,13 +27,15 @@ servers:
 
 tags:
   - name: Health
-    description: Liveness and readiness probes (no authentication required).
+    description: Liveness, readiness, and status probes (no authentication required).
   - name: Chat
     description: Create chat completions with optional streaming and tool calling.
   - name: Models
     description: List available models from the inference backend.
   - name: Embeddings
     description: Generate vector embeddings for text input.
+  - name: Audio
+    description: Text-to-speech synthesis via local TTS backends.
   - name: Observability
     description: Prometheus metrics endpoint (no authentication required).
 
@@ -119,6 +121,93 @@ paths:
                 status: unavailable
                 backend: mlx
                 error: "mlx health check: dial tcp 192.168.0.x:11973: connect: connection refused"
+
+  /health/status:
+    get:
+      operationId: healthStatus
+      tags: [Health]
+      summary: Consolidated health status
+      description: |
+        Returns a per-service breakdown of all registered backends (chat, embed,
+        TTS). Used by the Docker HEALTHCHECK and the background watchdog.
+        Returns 200 when all services are healthy, 503 when any are degraded.
+      responses:
+        "200":
+          description: All backends healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatusResponse"
+              example:
+                status: healthy
+                version: "1.0.0"
+                services:
+                  ollama:
+                    status: healthy
+                  kokoro:
+                    status: healthy
+        "503":
+          description: One or more backends are degraded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatusResponse"
+              example:
+                status: degraded
+                version: "1.0.0"
+                services:
+                  ollama:
+                    status: healthy
+                  kokoro:
+                    status: unhealthy
+                    error: "tts health check: status 500"
+
+  /v1/audio/speech:
+    post:
+      operationId: createSpeech
+      tags: [Audio]
+      summary: Create speech
+      description: |
+        Generates audio from text input using a local TTS backend.
+        Compatible with the OpenAI TTS API. The response body is raw audio bytes.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TTSRequest"
+            example:
+              model: kokoro
+              input: "Hello world, this is a test."
+              voice: af_bella
+              response_format: mp3
+              speed: 1.0
+      responses:
+        "200":
+          description: Audio bytes in the requested format.
+          content:
+            audio/mpeg:
+              schema:
+                type: string
+                format: binary
+            audio/wav:
+              schema:
+                type: string
+                format: binary
+            audio/opus:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/BackendUnavailable"
 
   /v1/models:
     get:
@@ -627,6 +716,60 @@ components:
           items:
             type: number
           description: The embedding vector.
+
+    # ── Health Status ────────────────────────────────────────────────────
+    HealthStatusResponse:
+      type: object
+      required: [status, version, services]
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+        version:
+          type: string
+        services:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ServiceStatus"
+
+    ServiceStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        error:
+          type: string
+          description: Error message when status is unhealthy.
+
+    # ── TTS ──────────────────────────────────────────────────────────────
+    TTSRequest:
+      type: object
+      required: [input]
+      properties:
+        model:
+          type: string
+          default: kokoro
+          description: TTS model/backend to use.
+        input:
+          type: string
+          description: Text to synthesize.
+        voice:
+          type: string
+          default: af_bella
+          description: Voice identifier.
+        response_format:
+          type: string
+          enum: [mp3, wav, opus, flac, pcm]
+          default: wav
+          description: Audio output format.
+        speed:
+          type: number
+          minimum: 0.25
+          maximum: 4.0
+          default: 1.0
+          description: Speech speed multiplier.
 
     # ── Shared ──────────────────────────────────────────────────────────
     Usage:

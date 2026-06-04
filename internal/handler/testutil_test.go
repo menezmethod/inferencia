@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/menezmethod/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/router"
 )
 
 // discardLogger returns a logger that writes to /dev/null.
@@ -54,4 +55,36 @@ func newTestRegistry(b backend.Backend) *backend.Registry {
 	reg := backend.NewRegistry()
 	reg.Register(b)
 	return reg
+}
+
+// mockTTSBackend implements backend.TTSBackend for testing.
+type mockTTSBackend struct {
+	name      string
+	healthErr error
+	voices    []backend.Voice
+	voicesErr error
+}
+
+func (m *mockTTSBackend) Name() string { return m.name }
+
+func (m *mockTTSBackend) Health(context.Context) error { return m.healthErr }
+
+func (m *mockTTSBackend) Synthesize(_ context.Context, _ backend.TTSRequest) (*backend.TTSResponse, error) {
+	return &backend.TTSResponse{Audio: []byte("mock-audio"), Format: "audio/wav"}, nil
+}
+
+func (m *mockTTSBackend) Voices(context.Context) ([]backend.Voice, error) {
+	return m.voices, m.voicesErr
+}
+
+// newTestTTSRegistry creates a router.Registry with a single TTS backend.
+func newTestTTSRegistry(mock *mockTTSBackend) *router.Registry {
+	r := router.NewRegistry()
+	r.Register(router.BackendInfo{
+		Name:       mock.name,
+		TTSBackend: mock,
+		Capabilities: []router.Capability{router.CapTTS},
+		Models:     []router.ModelInfo{{ID: mock.name, Kind: router.CapTTS}},
+	})
+	return r
 }
