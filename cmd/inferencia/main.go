@@ -90,6 +90,9 @@ func main() {
 		server.RegisterTTSRoutes(srv, ttsRouter, logger, protected)
 	}
 
+	// Register consolidated health status endpoint.
+	server.RegisterHealthStatusRoute(srv, reg, ttsRouter)
+
 	// Optional OpenTelemetry tracing: wrap handler so all requests are traced.
 	var tp *observability.TracerProvider
 	if cfg.Observability.OTelEnabled {
