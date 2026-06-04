@@ -47,7 +47,8 @@ func main() {
 			reg.Register(backend.NewMLX(b.Name, b.URL, b.Timeout))
 			logger.Info("backend registered", "name", b.Name, "type", b.Type, "url", b.URL)
 		case "ollama":
-			logger.Warn("ollama backend not yet implemented, skipping", "name", b.Name)
+			reg.Register(backend.NewOllama(b.Name, b.URL, b.Timeout))
+			logger.Info("backend registered", "name", b.Name, "type", b.Type, "url", b.URL)
 		default:
 			logger.Error("unknown backend type", "name", b.Name, "type", b.Type)
 			os.Exit(1)
