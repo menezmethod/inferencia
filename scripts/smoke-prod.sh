@@ -37,6 +37,7 @@ failed=0
 
 check GET /health 200 || failed=1
 check GET /health/ready 200 || failed=1
+check GET /health/status 200 || failed=1
 check GET /metrics 200 || failed=1
 check GET /docs 200 || failed=1
 check GET /openapi.yaml 200 || failed=1
