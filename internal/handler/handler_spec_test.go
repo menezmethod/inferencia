@@ -53,6 +53,113 @@ var _ = Describe("Ready", func() {
 	})
 })
 
+var _ = Describe("HealthStatus", func() {
+	When("all backends are healthy", func() {
+		It("returns 200 with per-service breakdown", func() {
+			mock := &mockBackend{healthErr: nil}
+			reg := newTestRegistry(mock)
+			h := HealthStatus(reg, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Status).To(Equal("healthy"))
+			Expect(resp.Services).To(HaveKey("mock"))
+			Expect(resp.Services["mock"].Status).To(Equal("healthy"))
+			Expect(resp.Version).NotTo(BeEmpty())
+		})
+	})
+
+	When("a chat backend is unhealthy", func() {
+		It("returns 503 with error detail", func() {
+			mock := &mockBackend{healthErr: errors.New("connection refused")}
+			reg := newTestRegistry(mock)
+			h := HealthStatus(reg, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Status).To(Equal("degraded"))
+			Expect(resp.Services["mock"].Status).To(Equal("unhealthy"))
+			Expect(resp.Services["mock"].Error).To(ContainSubstring("connection refused"))
+		})
+	})
+
+	When("a TTS backend is unhealthy", func() {
+		It("returns 503 and reports TTS as degraded", func() {
+			mock := &mockBackend{healthErr: nil}
+			reg := newTestRegistry(mock)
+			ttsMock := &mockTTSBackend{
+				name:      "kokoro",
+				healthErr: errors.New("tts timeout"),
+			}
+			ttsReg := newTestTTSRegistry(ttsMock)
+			h := HealthStatus(reg, ttsReg)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Status).To(Equal("degraded"))
+			Expect(resp.Services["mock"].Status).To(Equal("healthy"))
+			Expect(resp.Services["kokoro"].Status).To(Equal("unhealthy"))
+			Expect(resp.Services["kokoro"].Error).To(ContainSubstring("tts timeout"))
+		})
+	})
+
+	When("both chat and TTS are unhealthy", func() {
+		It("returns 503 with both reported", func() {
+			mock := &mockBackend{healthErr: errors.New("ollama down")}
+			reg := newTestRegistry(mock)
+			ttsMock := &mockTTSBackend{
+				name:      "kokoro",
+				healthErr: errors.New("kokoro down"),
+			}
+			ttsReg := newTestTTSRegistry(ttsMock)
+			h := HealthStatus(reg, ttsReg)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Status).To(Equal("degraded"))
+			Expect(resp.Services["mock"].Status).To(Equal("unhealthy"))
+			Expect(resp.Services["kokoro"].Status).To(Equal("unhealthy"))
+		})
+	})
+
+	When("no backends are registered at all", func() {
+		It("returns 503 with _none service", func() {
+			reg := backend.NewRegistry()
+			h := HealthStatus(reg, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Status).To(Equal("degraded"))
+			Expect(resp.Services["_none"].Status).To(Equal("unhealthy"))
+		})
+	})
+})
+
 var _ = Describe("Models", func() {
 	When("the backend returns a model list", func() {
 		It("returns 200 and the list", func() {

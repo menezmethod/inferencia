@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,7 +14,9 @@ import (
 	"github.com/menezmethod/inferencia/internal/backend"
 	"github.com/menezmethod/inferencia/internal/config"
 	"github.com/menezmethod/inferencia/internal/logging"
+	"github.com/menezmethod/inferencia/internal/middleware"
 	"github.com/menezmethod/inferencia/internal/observability"
+	"github.com/menezmethod/inferencia/internal/router"
 	"github.com/menezmethod/inferencia/internal/server"
 )
 
@@ -57,6 +60,38 @@ func main() {
 
 	// Create and start HTTP server.
 	srv := server.New(cfg, reg, ks, logger)
+
+	// Register TTS routes if TTS backends are configured.
+	ttsRouter := router.NewRegistry()
+	for _, t := range cfg.TTSBackends {
+		ttsBackend := backend.NewTTSHTTP(t.Name, t.URL, t.Timeout)
+		ttsRouter.Register(router.BackendInfo{
+			Name:       t.Name,
+			TTSBackend: ttsBackend,
+			Capabilities: []router.Capability{router.CapTTS},
+			Models: []router.ModelInfo{
+				{ID: t.Name, Kind: router.CapTTS},
+			},
+		})
+		logger.Info("tts backend registered", "name", t.Name, "url", t.URL)
+	}
+	if ttsRouter.Len() > 0 {
+		rl := middleware.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
+		protected := func(h http.Handler) http.Handler {
+			return middleware.Chain(h,
+				middleware.RequestID(),
+				middleware.Recover(logger),
+				middleware.Metrics(),
+				middleware.Logging(logger),
+				middleware.Auth(ks),
+				middleware.RateLimit(rl),
+			)
+		}
+		server.RegisterTTSRoutes(srv, ttsRouter, logger, protected)
+	}
+
+	// Register consolidated health status endpoint.
+	server.RegisterHealthStatusRoute(srv, reg, ttsRouter)
 
 	// Optional OpenTelemetry tracing: wrap handler so all requests are traced.
 	var tp *observability.TracerProvider

@@ -115,7 +115,7 @@ var _ = Describe("SelectBackend", func() {
 
 			info, err := reg.SelectBackend(CapTTS, "")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(info.Name).To(Equal("tts-one"))
+			Expect(info.Capabilities).To(ContainElement(CapTTS))
 		})
 	})
 

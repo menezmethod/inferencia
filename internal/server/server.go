@@ -93,6 +93,18 @@ func RegisterTTSRoute(mux *http.ServeMux, rtr *router.Registry, ks *auth.KeyStor
 	mux.Handle("POST /v1/audio/speech", protected(handler.Audio(rtr, logger)))
 }
 
+// RegisterHealthStatusRoute adds the consolidated /health/status endpoint.
+// It probes all chat/embed backends and any configured TTS backends,
+// returning a per-service breakdown. No auth required.
+func RegisterHealthStatusRoute(srv *http.Server, reg *backend.Registry, ttsReg *router.Registry) {
+	if srv.Handler == nil {
+		return
+	}
+	if mux, ok := srv.Handler.(*http.ServeMux); ok {
+		mux.HandleFunc("GET /health/status", handler.HealthStatus(reg, ttsReg))
+	}
+}
+
 // Shutdown gracefully shuts down the server with the given context.
 func Shutdown(ctx context.Context, srv *http.Server, logger *slog.Logger) {
 	logger.Info("shutting down server")
