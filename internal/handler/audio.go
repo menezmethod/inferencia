@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/menezmethod/inferencia/internal/apierror"
 	"github.com/menezmethod/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/middleware"
 	"github.com/menezmethod/inferencia/internal/router"
 )
 
@@ -53,18 +55,28 @@ func Audio(rtr *router.Registry, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
+		middleware.RoutingDecisionsTotal.WithLabelValues("tts", info.Name).Inc()
+
 		if info.TTSBackend == nil {
 			logger.Error("selected backend has no TTS backend", "name", info.Name)
 			apierror.Write(w, apierror.BackendUnavailable(info.Name))
 			return
 		}
 
+		start := time.Now()
 		resp, err := info.TTSBackend.Synthesize(r.Context(), req)
+		elapsed := time.Since(start)
+
 		if err != nil {
+			middleware.TTSRequestsTotal.WithLabelValues(info.Name, "error").Inc()
 			logger.Error("tts synthesis failed", "backend", info.Name, "err", err)
 			apierror.Write(w, apierror.BackendUnavailable(info.Name))
 			return
 		}
+
+		middleware.TTSRequestsTotal.WithLabelValues(info.Name, "success").Inc()
+		middleware.TTSRequestDuration.WithLabelValues(info.Name).Observe(elapsed.Seconds())
+		middleware.TTSCharactersTotal.WithLabelValues(info.Name).Add(float64(len(req.Input)))
 
 		// Determine Content-Type from response or the requested format.
 		contentType := resp.Format

@@ -57,6 +57,35 @@ var (
 		Name:      "ratelimit_rejections_total",
 		Help:      "Total requests rejected by the rate limiter.",
 	})
+
+	TTSRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "inferencia",
+		Subsystem: "tts",
+		Name:      "requests_total",
+		Help:      "Total TTS synthesis requests by backend and status.",
+	}, []string{"backend", "status"})
+
+	TTSRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "inferencia",
+		Subsystem: "tts",
+		Name:      "request_duration_seconds",
+		Help:      "TTS synthesis latency in seconds.",
+		Buckets:   []float64{0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30},
+	}, []string{"backend"})
+
+	TTSCharactersTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "inferencia",
+		Subsystem: "tts",
+		Name:      "characters_total",
+		Help:      "Total characters sent for TTS synthesis.",
+	}, []string{"backend"})
+
+	RoutingDecisionsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "inferencia",
+		Subsystem: "router",
+		Name:      "decisions_total",
+		Help:      "Total routing decisions by capability and selected backend.",
+	}, []string{"capability", "backend"})
 )
 
 // normalizePath maps request paths to metric-safe labels to avoid cardinality explosion.
@@ -68,10 +97,14 @@ func normalizePath(path string) string {
 		return "/v1/models"
 	case "/v1/embeddings":
 		return "/v1/embeddings"
+	case "/v1/audio/speech":
+		return "/v1/audio/speech"
 	case "/health":
 		return "/health"
 	case "/health/ready":
 		return "/health/ready"
+	case "/health/status":
+		return "/health/status"
 	case "/metrics":
 		return "/metrics"
 	case "/openapi.yaml":
