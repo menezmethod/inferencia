@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.menez.kokoro-tts</string>
+
+    <!-- Start on user login -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Auto-restart on crash -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Run once; no interval-based scheduling -->
+    <key>StartInterval</key>
+    <false/>
+
+    <!-- Wait for network before launching -->
+    <key>WaitForDebugger</key>
+    <false/>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/python3</string>
+        <string>/Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers/kokoro-server.py</string>
+    </array>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>/Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers</string>
+
+    <!-- Environment -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PORT</key>
+        <string>50051</string>
+        <key>HOST</key>
+        <string>127.0.0.1</string>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+    </dict>
+
+    <!-- Logs -->
+    <key>StandardOutPath</key>
+    <string>/Users/luisgimenez/Library/Logs/kokoro-tts/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/luisgimenez/Library/Logs/kokoro-tts/stderr.log</string>
+
+    <!-- Rotate logs (10 files × 5 MB) -->
+    <key>StandardOutDataSize</key>
+    <integer>5242880</integer>
+    <key>StandardOutDataFileCount</key>
+    <integer>10</integer>
+    <key>StandardErrorDataSize</key>
+    <integer>5242880</integer>
+    <key>StandardErrorDataFileCount</key>
+    <integer>10</integer>
+
+    <!-- Soft resource limits -->
+    <key>SoftResourceLimits</key>
+    <dict>
+        <key>NumberOfFiles</key>
+        <integer>1024</integer>
+    </dict>
+
+    <!-- Throttle interval after crash (60 seconds) -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+</dict>
+</plist>
