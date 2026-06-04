@@ -24,6 +24,14 @@ type Config struct {
 	RateLimit     RateLimit     `yaml:"ratelimit"`
 	Log           Log           `yaml:"log"`
 	Observability Observability `yaml:"observability"`
+	Watchdog      Watchdog      `yaml:"watchdog"`
+}
+
+// Watchdog configures the background health-check loop.
+type Watchdog struct {
+	Interval       time.Duration `yaml:"interval"`
+	FailThreshold  int           `yaml:"fail_threshold"`
+	RequestTimeout time.Duration `yaml:"request_timeout"`
 }
 
 // Server configures the HTTP listener.
@@ -107,6 +115,11 @@ func Defaults() Config {
 			OTelEnabled:     false,
 			OTelEndpoint:    "",
 			OTelServiceName: "inferencia",
+		},
+		Watchdog: Watchdog{
+			Interval:       30 * time.Second,
+			FailThreshold:  3,
+			RequestTimeout: 5 * time.Second,
 		},
 	}
 }
@@ -210,6 +223,23 @@ func applyEnvOverrides(cfg *Config) {
 			URL:     strings.TrimSpace(v),
 			Timeout: 30 * time.Second,
 		})
+	}
+
+	// Watchdog env vars.
+	if v := os.Getenv("INFERENCIA_WATCHDOG_INTERVAL"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			cfg.Watchdog.Interval = d
+		}
+	}
+	if v := os.Getenv("INFERENCIA_WATCHDOG_FAIL_THRESHOLD"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.Watchdog.FailThreshold = n
+		}
+	}
+	if v := os.Getenv("INFERENCIA_WATCHDOG_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			cfg.Watchdog.RequestTimeout = d
+		}
 	}
 }
 

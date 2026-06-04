@@ -18,6 +18,7 @@ import (
 	"github.com/menezmethod/inferencia/internal/observability"
 	"github.com/menezmethod/inferencia/internal/router"
 	"github.com/menezmethod/inferencia/internal/server"
+	"github.com/menezmethod/inferencia/internal/watchdog"
 )
 
 func main() {
@@ -93,6 +94,14 @@ func main() {
 	// Register consolidated health status endpoint.
 	server.RegisterHealthStatusRoute(srv, reg, ttsRouter)
 
+	// Start the watchdog: periodic health checks for all backends.
+	wd := watchdog.New(watchdog.Config{
+		Interval:       cfg.Watchdog.Interval,
+		FailThreshold:  cfg.Watchdog.FailThreshold,
+		RequestTimeout: cfg.Watchdog.RequestTimeout,
+	}, reg, ttsRouter, logger)
+	wd.Start()
+
 	// Optional OpenTelemetry tracing: wrap handler so all requests are traced.
 	var tp *observability.TracerProvider
 	if cfg.Observability.OTelEnabled {
@@ -124,6 +133,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
+	wd.Stop()
 	if tp != nil {
 		_ = tp.Shutdown(ctx)
 	}

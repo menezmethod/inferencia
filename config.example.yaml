@@ -42,6 +42,14 @@ log:
   format: "json"      # json | text
   # cloud_format: ""  # "" | gcp | gcp_with_resource — add severity (and resource) for GCP Cloud Logging
 
+# Watchdog: background health-check loop for all backends.
+# Pings /health every interval. After fail_threshold consecutive failures
+# a backend is marked DEGRADED and removed from auto-rotation.
+watchdog:
+  interval: 30s
+  fail_threshold: 3
+  request_timeout: 5s
+
 # Metrics: GET /metrics is always enabled (no auth). Optional tracing below.
 observability:
   otel_enabled: false
