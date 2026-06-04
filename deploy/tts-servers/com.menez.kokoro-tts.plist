@@ -25,7 +25,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/python3</string>
-        <string>/Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers/kokoro-server.py</string>
+        <string>/Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers/kokoro_server.py</string>
     </array>
 
     <!-- Working directory -->
