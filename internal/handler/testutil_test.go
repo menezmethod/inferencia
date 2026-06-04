@@ -15,20 +15,22 @@ func discardLogger() *slog.Logger {
 
 // mockBackend implements backend.Backend for testing.
 type mockBackend struct {
-	chatResp   *backend.ChatResponse
-	chatErr    error
-	modelsResp *backend.ModelsResponse
-	modelsErr  error
-	embedResp  *backend.EmbedResponse
-	embedErr   error
-	healthErr  error
+	chatResp    *backend.ChatResponse
+	chatErr     error
+	lastChatReq backend.ChatRequest
+	modelsResp  *backend.ModelsResponse
+	modelsErr   error
+	embedResp   *backend.EmbedResponse
+	embedErr    error
+	healthErr   error
 }
 
 func (m *mockBackend) Name() string { return "mock" }
 
 func (m *mockBackend) Health(context.Context) error { return m.healthErr }
 
-func (m *mockBackend) ChatCompletion(_ context.Context, _ backend.ChatRequest) (*backend.ChatResponse, error) {
+func (m *mockBackend) ChatCompletion(_ context.Context, req backend.ChatRequest) (*backend.ChatResponse, error) {
+	m.lastChatReq = req
 	return m.chatResp, m.chatErr
 }
 
