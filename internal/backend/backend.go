@@ -17,6 +17,9 @@ import (
 // ErrBackendNotFound is returned when a requested backend doesn't exist.
 var ErrBackendNotFound = errors.New("backend not found")
 
+// ErrNoHealthyBackend is returned when every registered backend is degraded.
+var ErrNoHealthyBackend = errors.New("no healthy backend available")
+
 // --- Per-kind interfaces ---
 
 // Probe is the minimal interface every backend must implement:
@@ -128,6 +131,45 @@ func (r *Registry) Get(name string) (Backend, error) {
 // Primary returns the default backend.
 func (r *Registry) Primary() (Backend, error) {
 	return r.Get("")
+}
+
+// PrimaryName returns the default backend name, or empty if none registered.
+func (r *Registry) PrimaryName() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.primary
+}
+
+// PrimaryHealthy returns the primary backend when healthy, otherwise the first
+// other healthy backend. When hc is nil, this behaves like Primary.
+func (r *Registry) PrimaryHealthy(hc HealthChecker) (Backend, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if len(r.backends) == 0 {
+		return nil, ErrBackendNotFound
+	}
+
+	for _, name := range r.healthyOrderLocked(hc) {
+		return r.backends[name], nil
+	}
+	return nil, ErrNoHealthyBackend
+}
+
+func (r *Registry) healthyOrderLocked(hc HealthChecker) []string {
+	var order []string
+	if r.primary != "" && (hc == nil || hc.IsHealthy(r.primary)) {
+		order = append(order, r.primary)
+	}
+	for name := range r.backends {
+		if name == r.primary {
+			continue
+		}
+		if hc == nil || hc.IsHealthy(name) {
+			order = append(order, name)
+		}
+	}
+	return order
 }
 
 // All returns all registered backends.

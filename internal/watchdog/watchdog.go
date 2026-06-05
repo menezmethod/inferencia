@@ -95,13 +95,14 @@ func (w *Watchdog) Stop() {
 }
 
 // IsHealthy returns whether a named backend is currently healthy.
+// Backends not yet probed are treated as healthy until the fail threshold is reached.
 func (w *Watchdog) IsHealthy(name string) bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	if s, ok := w.states[name]; ok {
 		return s.healthy
 	}
-	return false
+	return true
 }
 
 // probe runs one health-check cycle across all backends.

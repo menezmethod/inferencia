@@ -28,7 +28,7 @@ const (
 //
 // Uses the router registry to select the appropriate TTS backend.
 // Accepts the standard OpenAI-compatible TTS request body.
-func Audio(rtr *router.Registry, logger *slog.Logger) http.HandlerFunc {
+func Audio(rtr *router.Registry, hc backend.HealthChecker, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req backend.TTSRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -50,11 +50,10 @@ func Audio(rtr *router.Registry, logger *slog.Logger) http.HandlerFunc {
 			req.Model = defaultTTSModel
 		}
 
-		// Select the TTS backend.
-		info, err := rtr.SelectBackend(router.CapTTS, req.Model)
+		info, err := rtr.SelectHealthyBackend(router.CapTTS, req.Model, hc)
 		if err != nil {
 			logger.Error("no TTS backend available", "err", err)
-			apierror.Write(w, apierror.BackendUnavailable("tts"))
+			apierror.Write(w, apierror.BackendUnavailable(req.Model))
 			return
 		}
 
@@ -93,7 +92,7 @@ func Audio(rtr *router.Registry, logger *slog.Logger) http.HandlerFunc {
 		if err != nil {
 			middleware.TTSRequestsTotal.WithLabelValues(info.Name, "error").Inc()
 			logger.Error("tts synthesis failed", "backend", info.Name, "err", err)
-			apierror.Write(w, apierror.BackendUnavailable(info.Name))
+			apierror.Write(w, apierror.FromBackendError(info.Name, err))
 			return
 		}
 

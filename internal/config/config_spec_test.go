@@ -16,10 +16,12 @@ var _ = Describe("Defaults", func() {
 		Expect(cfg.Server.Host).To(Equal("127.0.0.1"))
 	})
 
-	It("includes one Ollama backend", func() {
+	It("includes one Ollama backend with split timeouts", func() {
 		cfg := Defaults()
 		Expect(cfg.Backends).To(HaveLen(1))
 		Expect(cfg.Backends[0].Type).To(Equal("ollama"))
+		Expect(cfg.Backends[0].HealthTimeout).To(Equal(5 * time.Second))
+		Expect(cfg.Backends[0].Timeout).To(Equal(300 * time.Second))
 	})
 })
 

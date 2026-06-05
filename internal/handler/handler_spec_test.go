@@ -266,7 +266,7 @@ var _ = Describe("Models", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := Models(reg, discardLogger())
+			h := Models(reg, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -283,7 +283,7 @@ var _ = Describe("Models", func() {
 		It("returns 503", func() {
 			mock := &mockBackend{modelsErr: errors.New("connection refused")}
 			reg := newTestRegistry(mock)
-			h := Models(reg, discardLogger())
+			h := Models(reg, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -294,7 +294,7 @@ var _ = Describe("Models", func() {
 	When("no primary backend is registered", func() {
 		It("returns 503 BackendUnavailable", func() {
 			reg := backend.NewRegistry()
-			h := Models(reg, discardLogger())
+			h := Models(reg, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -317,7 +317,7 @@ var _ = Describe("ChatCompletions", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := ChatCompletions(reg, discardLogger())
+			h := ChatCompletions(reg, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -334,7 +334,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("messages are empty", func() {
 		It("returns 400", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := ChatCompletions(reg, discardLogger())
+			h := ChatCompletions(reg, nil, discardLogger())
 			body := `{"model":"test","messages":[]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			rec := httptest.NewRecorder()
@@ -354,7 +354,7 @@ var _ = Describe("ChatCompletions", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := ChatCompletions(reg, discardLogger())
+			h := ChatCompletions(reg, nil, discardLogger())
 			body := `{"messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -370,7 +370,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("body is invalid JSON", func() {
 		It("returns 400", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := ChatCompletions(reg, discardLogger())
+			h := ChatCompletions(reg, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader("not json"))
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -381,7 +381,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("stream is true", func() {
 		It("returns 200 with SSE and [DONE]", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := ChatCompletions(reg, discardLogger())
+			h := ChatCompletions(reg, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}],"stream":true}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -399,7 +399,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("no primary backend is registered", func() {
 		It("returns 503 BackendUnavailable", func() {
 			reg := backend.NewRegistry() // empty
-			h := ChatCompletions(reg, discardLogger())
+			h := ChatCompletions(reg, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -409,10 +409,73 @@ var _ = Describe("ChatCompletions", func() {
 		})
 	})
 
+	When("backend times out", func() {
+		It("returns 504 backend_timeout", func() {
+			mock := &mockBackend{chatErr: errors.New("ollama chat completion: context deadline exceeded")}
+			reg := newTestRegistry(mock)
+			h := ChatCompletions(reg, nil, discardLogger())
+			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(504))
+			var resp struct {
+				Error struct {
+					Code string `json:"code"`
+				} `json:"error"`
+			}
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Error.Code).To(Equal("backend_timeout"))
+		})
+	})
+
+	When("backend is overloaded", func() {
+		It("returns 503 backend_overloaded", func() {
+			mock := &mockBackend{chatErr: errors.New("ollama chat completion: status 429: server busy")}
+			reg := newTestRegistry(mock)
+			h := ChatCompletions(reg, nil, discardLogger())
+			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp struct {
+				Error struct {
+					Code string `json:"code"`
+				} `json:"error"`
+			}
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Error.Code).To(Equal("backend_overloaded"))
+		})
+	})
+
+	When("backend is degraded by watchdog", func() {
+		It("returns 503 without calling the backend", func() {
+			mock := &mockBackend{
+				chatResp: &backend.ChatResponse{ID: "should-not-run"},
+			}
+			reg := newTestRegistry(mock)
+			hc := stubHealthChecker{healthy: map[string]bool{"mock": false}}
+			h := ChatCompletions(reg, hc, discardLogger())
+			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			Expect(mock.lastChatReq.Model).To(BeEmpty())
+		})
+	})
+
 	When("stream is true but ResponseWriter is not a Flusher", func() {
 		It("returns 500 Internal", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := ChatCompletions(reg, discardLogger())
+			h := ChatCompletions(reg, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}],"stream":true}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -437,7 +500,7 @@ var _ = Describe("Embeddings", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := Embeddings(reg, discardLogger())
+			h := Embeddings(reg, nil, discardLogger())
 			body := `{"model":"test-embed","input":"hello world"}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -456,7 +519,7 @@ var _ = Describe("Embeddings", func() {
 	When("input is missing", func() {
 		It("returns 400", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := Embeddings(reg, discardLogger())
+			h := Embeddings(reg, nil, discardLogger())
 			body := `{"model":"test"}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -469,7 +532,7 @@ var _ = Describe("Embeddings", func() {
 	When("body is invalid JSON", func() {
 		It("returns 400", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := Embeddings(reg, discardLogger())
+			h := Embeddings(reg, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader("not json"))
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -481,7 +544,7 @@ var _ = Describe("Embeddings", func() {
 		It("returns 503", func() {
 			mock := &mockBackend{embedErr: errors.New("backend down")}
 			reg := newTestRegistry(mock)
-			h := Embeddings(reg, discardLogger())
+			h := Embeddings(reg, nil, discardLogger())
 			body := `{"model":"test","input":"hi"}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -494,7 +557,7 @@ var _ = Describe("Embeddings", func() {
 	When("no primary backend is registered", func() {
 		It("returns 503 BackendUnavailable", func() {
 			reg := backend.NewRegistry()
-			h := Embeddings(reg, discardLogger())
+			h := Embeddings(reg, nil, discardLogger())
 			body := `{"model":"test","input":"hi"}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")

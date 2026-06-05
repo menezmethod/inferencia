@@ -46,12 +46,16 @@ func main() {
 	// Register backends.
 	reg := backend.NewRegistry()
 	for _, b := range cfg.Backends {
+		healthTimeout := b.HealthTimeout
+		if healthTimeout <= 0 {
+			healthTimeout = 5 * time.Second
+		}
 		switch b.Type {
 		case "mlx":
-			reg.Register(backend.NewMLX(b.Name, b.URL, b.Timeout))
+			reg.Register(backend.NewMLX(b.Name, b.URL, healthTimeout, b.Timeout))
 			logger.Info("backend registered", "name", b.Name, "type", b.Type, "url", b.URL)
 		case "ollama":
-			reg.Register(backend.NewOllama(b.Name, b.URL, b.Timeout))
+			reg.Register(backend.NewOllama(b.Name, b.URL, healthTimeout, b.Timeout))
 			logger.Info("backend registered", "name", b.Name, "type", b.Type, "url", b.URL)
 		default:
 			logger.Error("unknown backend type", "name", b.Name, "type", b.Type)
@@ -59,10 +63,6 @@ func main() {
 		}
 	}
 
-	// Create and start HTTP server.
-	srv := server.New(cfg, reg, ks, logger)
-
-	// Register TTS routes if TTS backends are configured.
 	ttsRouter := router.NewRegistry()
 	for _, t := range cfg.TTSBackends {
 		ttsBackend := backend.NewTTSHTTP(t.Name, t.URL, t.Timeout)
@@ -76,6 +76,15 @@ func main() {
 		})
 		logger.Info("tts backend registered", "name", t.Name, "url", t.URL)
 	}
+
+	wd := watchdog.New(watchdog.Config{
+		Interval:       cfg.Watchdog.Interval,
+		FailThreshold:  cfg.Watchdog.FailThreshold,
+		RequestTimeout: cfg.Watchdog.RequestTimeout,
+	}, reg, ttsRouter, logger)
+
+	srv := server.New(cfg, reg, ks, wd, logger)
+
 	if ttsRouter.Len() > 0 {
 		rl := middleware.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
 		protected := func(h http.Handler) http.Handler {
@@ -88,18 +97,12 @@ func main() {
 				middleware.RateLimit(rl),
 			)
 		}
-		server.RegisterTTSRoutes(srv, ttsRouter, logger, protected)
+		server.RegisterTTSRoutes(srv, ttsRouter, wd, logger, protected)
 	}
 
 	// Register consolidated health status endpoint.
 	server.RegisterHealthStatusRoute(srv, reg, ttsRouter)
 
-	// Start the watchdog: periodic health checks for all backends.
-	wd := watchdog.New(watchdog.Config{
-		Interval:       cfg.Watchdog.Interval,
-		FailThreshold:  cfg.Watchdog.FailThreshold,
-		RequestTimeout: cfg.Watchdog.RequestTimeout,
-	}, reg, ttsRouter, logger)
 	wd.Start()
 
 	// Optional OpenTelemetry tracing: wrap handler so all requests are traced.

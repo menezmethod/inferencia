@@ -1,34 +1,54 @@
 package router
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/menezmethod/inferencia/internal/backend"
+)
 
 // SelectBackend selects the best backend for the given capability and optional model name.
 // If a model is specified, it prefers backends that advertise that model.
 // If no model is specified, it returns the first backend that supports the capability.
 func (r *Registry) SelectBackend(kind Capability, model string) (BackendInfo, error) {
+	return r.selectBackend(kind, model, nil)
+}
+
+// SelectHealthyBackend skips backends the health checker marks degraded.
+func (r *Registry) SelectHealthyBackend(kind Capability, model string, hc backend.HealthChecker) (BackendInfo, error) {
+	return r.selectBackend(kind, model, hc)
+}
+
+func (r *Registry) selectBackend(kind Capability, model string, hc backend.HealthChecker) (BackendInfo, error) {
 	candidates := r.BackendsByCapability(kind)
 	if len(candidates) == 0 {
 		return BackendInfo{}, ErrCapabilityNotSupported
 	}
 
-	// If no model specified, return the first candidate.
-	if model == "" {
-		return candidates[0], nil
+	var healthy []BackendInfo
+	for _, c := range candidates {
+		if hc == nil || hc.IsHealthy(c.Name) {
+			healthy = append(healthy, c)
+		}
+	}
+	if len(healthy) == 0 {
+		return BackendInfo{}, backend.ErrNoHealthyBackend
 	}
 
-	// Score candidates: higher score = better match.
+	if model == "" {
+		return healthy[0], nil
+	}
+
 	type scored struct {
 		info  BackendInfo
 		score int
 	}
 	var scoredCandidates []scored
 
-	for _, c := range candidates {
+	for _, c := range healthy {
 		s := scoreBackend(c, kind, model)
 		scoredCandidates = append(scoredCandidates, scored{info: c, score: s})
 	}
 
-	// Sort by score descending.
 	sort.SliceStable(scoredCandidates, func(i, j int) bool {
 		return scoredCandidates[i].score > scoredCandidates[j].score
 	})

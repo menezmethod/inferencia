@@ -51,6 +51,17 @@ func (m *mockBackend) CreateEmbedding(_ context.Context, _ backend.EmbedRequest)
 	return m.embedResp, m.embedErr
 }
 
+type stubHealthChecker struct {
+	healthy map[string]bool
+}
+
+func (s stubHealthChecker) IsHealthy(name string) bool {
+	if s.healthy == nil {
+		return true
+	}
+	return s.healthy[name]
+}
+
 func newTestRegistry(b backend.Backend) *backend.Registry {
 	reg := backend.NewRegistry()
 	reg.Register(b)
