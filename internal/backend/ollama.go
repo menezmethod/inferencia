@@ -45,6 +45,7 @@ func (o *Ollama) Health(ctx context.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return fmt.Errorf("ollama health check: status %d", resp.StatusCode)
 	}
 	return nil

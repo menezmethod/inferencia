@@ -50,6 +50,7 @@ func (m *MLX) Health(ctx context.Context) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return fmt.Errorf("mlx health check: status %d", resp.StatusCode)
 	}
 	return nil

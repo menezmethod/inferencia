@@ -91,12 +91,18 @@ func handleStream(w http.ResponseWriter, r *http.Request, b backend.Backend, req
 		}
 
 		if string(data) == "[DONE]" {
-			_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
+			_, err := fmt.Fprintf(w, "data: [DONE]\n\n")
+			if err != nil {
+				return fmt.Errorf("client disconnected: %w", err)
+			}
 			flusher.Flush()
 			return nil
 		}
 
-		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
+		_, err := fmt.Fprintf(w, "data: %s\n\n", data)
+		if err != nil {
+			return fmt.Errorf("client disconnected: %w", err)
+		}
 		flusher.Flush()
 		return nil
 	}

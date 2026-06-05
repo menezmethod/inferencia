@@ -47,6 +47,7 @@ func (t *TTSHTTP) Health(ctx context.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return fmt.Errorf("tts health check: status %d", resp.StatusCode)
 	}
 	return nil

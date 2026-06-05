@@ -12,10 +12,12 @@ import (
 
 // RateLimiter implements a per-key token bucket rate limiter.
 type RateLimiter struct {
-	mu      sync.Mutex
-	buckets map[string]*bucket
-	rate    float64 // tokens per second
-	burst   int     // maximum tokens
+	mu       sync.Mutex
+	buckets  map[string]*bucket
+	rate     float64 // tokens per second
+	burst    int     // maximum tokens
+	done     chan struct{}
+	stopOnce sync.Once
 }
 
 type bucket struct {
@@ -29,6 +31,7 @@ func NewRateLimiter(rps float64, burst int) *RateLimiter {
 		buckets: make(map[string]*bucket),
 		rate:    rps,
 		burst:   burst,
+		done:    make(chan struct{}),
 	}
 	go rl.cleanup()
 	return rl
@@ -98,14 +101,26 @@ func (rl *RateLimiter) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		rl.mu.Lock()
-		cutoff := time.Now().Add(-10 * time.Minute)
-		for key, b := range rl.buckets {
-			if b.lastSeen.Before(cutoff) {
-				delete(rl.buckets, key)
+	for {
+		select {
+		case <-rl.done:
+			return
+		case <-ticker.C:
+			rl.mu.Lock()
+			cutoff := time.Now().Add(-10 * time.Minute)
+			for key, b := range rl.buckets {
+				if b.lastSeen.Before(cutoff) {
+					delete(rl.buckets, key)
+				}
 			}
+			rl.mu.Unlock()
 		}
-		rl.mu.Unlock()
 	}
+}
+
+// Stop shuts down the cleanup goroutine. Safe to call multiple times.
+func (rl *RateLimiter) Stop() {
+	rl.stopOnce.Do(func() {
+		close(rl.done)
+	})
 }
