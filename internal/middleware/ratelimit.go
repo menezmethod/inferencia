@@ -26,7 +26,14 @@ type bucket struct {
 }
 
 // NewRateLimiter creates a RateLimiter with the given refill rate and burst size.
+// rps must be > 0 and burst must be >= 1.
 func NewRateLimiter(rps float64, burst int) *RateLimiter {
+	if rps <= 0 {
+		rps = 1
+	}
+	if burst < 1 {
+		burst = 1
+	}
 	rl := &RateLimiter{
 		buckets: make(map[string]*bucket),
 		rate:    rps,

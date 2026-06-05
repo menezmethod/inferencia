@@ -1,7 +1,0 @@
-# inferencia API keys — one per line
-# Lines starting with # are comments.
-# Generate new keys with: openssl rand -hex 32
-# Use this key in Coolify as INFERENCIA_API_KEYS (or keep in this file for local run).
-# Never commit this file — it's in .gitignore.
-#
-sk-9d346c19bb382a2fbfa9cdf1445c776564eaae6ad041a8df809814c7abd09b03
