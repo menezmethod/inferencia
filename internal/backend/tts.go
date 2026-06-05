@@ -56,18 +56,21 @@ func (t *TTSHTTP) Health(ctx context.Context) error {
 // Synthesize calls POST /v1/audio/speech on the TTS server and returns the
 // raw audio bytes.
 func (t *TTSHTTP) Synthesize(ctx context.Context, req TTSRequest) (*TTSResponse, error) {
+	// Copy to avoid mutating the caller's request.
+	local := req
+
 	// Apply defaults.
-	if req.ResponseFormat == "" {
-		req.ResponseFormat = "wav"
+	if local.ResponseFormat == "" {
+		local.ResponseFormat = "wav"
 	}
-	if req.Speed <= 0 {
-		req.Speed = 1.0
+	if local.Speed <= 0 {
+		local.Speed = 1.0
 	}
-	if req.Voice == "" {
-		req.Voice = "default"
+	if local.Voice == "" {
+		local.Voice = "default"
 	}
 
-	body, err := json.Marshal(req)
+	body, err := json.Marshal(local)
 	if err != nil {
 		return nil, fmt.Errorf("marshal tts request: %w", err)
 	}

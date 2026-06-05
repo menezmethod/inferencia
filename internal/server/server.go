@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -48,11 +49,13 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *sl
 	mux.Handle("POST /v1/embeddings", protected(handler.Embeddings(reg, logger)))
 
 	return &http.Server{
-		Addr:         cfg.Server.Addr(),
-		Handler:      mux,
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
-		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		Addr:              cfg.Server.Addr(),
+		Handler:           mux,
+		ReadTimeout:       cfg.Server.ReadTimeout,
+		ReadHeaderTimeout: 10 * time.Second,
+		WriteTimeout:      cfg.Server.WriteTimeout,
+		IdleTimeout:       60 * time.Second,
+		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
 }
 

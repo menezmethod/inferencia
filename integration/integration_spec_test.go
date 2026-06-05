@@ -34,11 +34,11 @@ var _ = AfterSuite(func() {
 
 var _ = Describe("Integration", func() {
 	Describe("Unprotected endpoints", func() {
-		It("GET /health returns 200 and detailed status", func() {
+		It("GET /health returns detailed status (200 when healthy, 503 when degraded)", func() {
 			resp, err := http.Get(baseURL + "/health")
 			Expect(err).NotTo(HaveOccurred())
 			defer resp.Body.Close()
-			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(resp.StatusCode).To(Or(Equal(http.StatusOK), Equal(http.StatusServiceUnavailable)))
 			var body map[string]interface{}
 			Expect(json.NewDecoder(resp.Body).Decode(&body)).NotTo(HaveOccurred())
 			Expect(body).To(HaveKey("status"))

@@ -40,6 +40,9 @@ type response struct {
 
 // Write sends an Error as a JSON HTTP response.
 func Write(w http.ResponseWriter, err *Error) {
+	if err == nil {
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(err.Status)
 

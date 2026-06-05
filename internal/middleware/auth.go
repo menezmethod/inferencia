@@ -51,7 +51,7 @@ func extractBearerToken(r *http.Request) (string, bool) {
 	}
 
 	const prefix = "Bearer "
-	if !strings.HasPrefix(h, prefix) {
+	if len(h) < len(prefix) || !strings.EqualFold(h[:len(prefix)], prefix) {
 		return "", false
 	}
 

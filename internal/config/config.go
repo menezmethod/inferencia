@@ -244,16 +244,24 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("INFERENCIA_WATCHDOG_INTERVAL"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.Watchdog.Interval = d
+		} else {
+			slog.Warn("invalid INFERENCIA_WATCHDOG_INTERVAL, using default", "value", v, "err", err)
 		}
 	}
 	if v := os.Getenv("INFERENCIA_WATCHDOG_FAIL_THRESHOLD"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.Watchdog.FailThreshold = n
+		} else if err != nil {
+			slog.Warn("invalid INFERENCIA_WATCHDOG_FAIL_THRESHOLD, using default", "value", v, "err", err)
+		} else {
+			slog.Warn("invalid INFERENCIA_WATCHDOG_FAIL_THRESHOLD, must be positive, using default", "value", v)
 		}
 	}
 	if v := os.Getenv("INFERENCIA_WATCHDOG_TIMEOUT"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.Watchdog.RequestTimeout = d
+		} else {
+			slog.Warn("invalid INFERENCIA_WATCHDOG_TIMEOUT, using default", "value", v, "err", err)
 		}
 	}
 }
