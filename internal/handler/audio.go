@@ -14,10 +14,9 @@ import (
 	"github.com/menezmethod/inferencia/internal/router"
 )
 
-// Default TTS model and voice fallbacks.
+// Default TTS model fallback.
 const (
 	defaultTTSModel = "kokoro"
-	defaultTTSVoice = "af_bella"
 )
 
 // Audio handles text-to-speech synthesis requests.
@@ -43,9 +42,6 @@ func Audio(rtr *router.Registry, logger *slog.Logger) http.HandlerFunc {
 		if strings.TrimSpace(req.Model) == "" {
 			req.Model = defaultTTSModel
 		}
-		if strings.TrimSpace(req.Voice) == "" {
-			req.Voice = defaultTTSVoice
-		}
 
 		// Select the TTS backend.
 		info, err := rtr.SelectBackend(router.CapTTS, req.Model)
@@ -53,6 +49,19 @@ func Audio(rtr *router.Registry, logger *slog.Logger) http.HandlerFunc {
 			logger.Error("no TTS backend available", "err", err)
 			apierror.Write(w, apierror.BackendUnavailable("tts"))
 			return
+		}
+
+		// Apply voice default based on the selected backend.
+		// Each TTS backend has its own set of known voices.
+		if strings.TrimSpace(req.Voice) == "" {
+			switch info.Name {
+			case "kokoro":
+				req.Voice = "af_bella"
+			case "chatterbox":
+				req.Voice = "chatterbox-default"
+			default:
+				req.Voice = "default"
+			}
 		}
 
 		middleware.RoutingDecisionsTotal.WithLabelValues("tts", info.Name).Inc()
