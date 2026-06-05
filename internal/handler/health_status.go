@@ -113,9 +113,8 @@ func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFu
 						briefs := make([]ModelBrief, len(voices))
 						for i, v := range voices {
 							briefs[i] = ModelBrief{
-								ID:      v.ID,
-								Object:  "voice",
-								OwnedBy: v.Name,
+								ID:     v.ID,
+								Object: "voice",
 							}
 						}
 						s.Models = briefs

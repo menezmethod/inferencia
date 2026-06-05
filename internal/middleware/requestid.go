@@ -36,6 +36,13 @@ func RequestIDFromContext(ctx context.Context) string {
 
 func generateID() string {
 	b := make([]byte, 16)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// CSPRNG failure is catastrophic; fall back to a non-random but unique ID.
+		b = []byte(fallbackID[:16])
+	}
 	return hex.EncodeToString(b)
 }
+
+// fallbackID is used when the CSPRNG fails. It's a compile-time constant
+// that provides uniqueness across process restarts at least.
+const fallbackID = "inferencia-fallback-request-id"

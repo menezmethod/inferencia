@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/menezmethod/inferencia/internal/apierror"
 	"github.com/menezmethod/inferencia/internal/backend"
@@ -84,19 +85,29 @@ func handleStream(w http.ResponseWriter, r *http.Request, b backend.Backend, req
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
+	var mu sync.Mutex
 	send := func(data []byte) error {
 		// Check if client disconnected.
 		if r.Context().Err() != nil {
 			return r.Context().Err()
 		}
 
+		mu.Lock()
+		defer mu.Unlock()
+
 		if string(data) == "[DONE]" {
-			_, _ = fmt.Fprintf(w, "data: [DONE]\n\n")
+			_, err := fmt.Fprintf(w, "data: [DONE]\n\n")
+			if err != nil {
+				return fmt.Errorf("client disconnected: %w", err)
+			}
 			flusher.Flush()
 			return nil
 		}
 
-		_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
+		_, err := fmt.Fprintf(w, "data: %s\n\n", data)
+		if err != nil {
+			return fmt.Errorf("client disconnected: %w", err)
+		}
 		flusher.Flush()
 		return nil
 	}

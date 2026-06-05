@@ -17,6 +17,9 @@ import (
 // Default TTS model fallback.
 const (
 	defaultTTSModel = "kokoro"
+	// maxTTSInputLength caps the number of characters accepted for TTS synthesis.
+	// OpenAI's limit is 4096; we use the same to prevent resource exhaustion.
+	maxTTSInputLength = 4096
 )
 
 // Audio handles text-to-speech synthesis requests.
@@ -35,6 +38,10 @@ func Audio(rtr *router.Registry, logger *slog.Logger) http.HandlerFunc {
 
 		if strings.TrimSpace(req.Input) == "" {
 			apierror.Write(w, apierror.InvalidParam("input", "input is required and must not be empty"))
+			return
+		}
+		if len(req.Input) > maxTTSInputLength {
+			apierror.Write(w, apierror.InvalidParam("input", "input must be at most 4096 characters"))
 			return
 		}
 
@@ -62,6 +69,13 @@ func Audio(rtr *router.Registry, logger *slog.Logger) http.HandlerFunc {
 			default:
 				req.Voice = "default"
 			}
+		}
+
+		// Clamp speed to OpenAI-compatible range [0.25, 4.0].
+		if req.Speed < 0.25 {
+			req.Speed = 0.25
+		} else if req.Speed > 4.0 {
+			req.Speed = 4.0
 		}
 
 		middleware.RoutingDecisionsTotal.WithLabelValues("tts", info.Name).Inc()

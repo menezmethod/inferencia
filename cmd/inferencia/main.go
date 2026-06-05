@@ -121,7 +121,7 @@ func main() {
 
 	go func() {
 		logger.Info("server starting", "addr", cfg.Server.Addr())
-		if err := srv.ListenAndServe(); err != nil && err.Error() != "http: Server closed" {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("server error", "err", err)
 			os.Exit(1)
 		}

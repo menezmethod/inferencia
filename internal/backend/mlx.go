@@ -50,6 +50,7 @@ func (m *MLX) Health(ctx context.Context) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return fmt.Errorf("mlx health check: status %d", resp.StatusCode)
 	}
 	return nil
@@ -57,10 +58,11 @@ func (m *MLX) Health(ctx context.Context) error {
 
 // ChatCompletion forwards a non-streaming chat completion request to MLX.
 func (m *MLX) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
-	// Ensure streaming is off for this path.
-	req.Stream = false
+	// Copy to avoid mutating the caller's request.
+	local := req
+	local.Stream = false
 
-	body, err := json.Marshal(req)
+	body, err := json.Marshal(local)
 	if err != nil {
 		return nil, fmt.Errorf("marshal chat request: %w", err)
 	}
@@ -94,9 +96,11 @@ func (m *MLX) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatRespons
 // send function. The raw JSON bytes are passed through without re-encoding,
 // preserving the backend's response format.
 func (m *MLX) ChatCompletionStream(ctx context.Context, req ChatRequest, send StreamFunc) error {
-	req.Stream = true
+	// Copy to avoid mutating the caller's request.
+	local := req
+	local.Stream = true
 
-	body, err := json.Marshal(req)
+	body, err := json.Marshal(local)
 	if err != nil {
 		return fmt.Errorf("marshal chat request: %w", err)
 	}
@@ -122,6 +126,8 @@ func (m *MLX) ChatCompletionStream(ctx context.Context, req ChatRequest, send St
 
 	// Read SSE events line by line.
 	scanner := bufio.NewScanner(resp.Body)
+	// Increase scanner buffer from default 64KB to 1MB for large SSE payloads.
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 

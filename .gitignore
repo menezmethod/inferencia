@@ -28,3 +28,7 @@ keys.txt
 # OS
 .DS_Store
 Thumbs.db
+*.pyc
+__pycache__/
+*.bak
+keys.txt.bak

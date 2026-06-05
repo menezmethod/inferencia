@@ -20,7 +20,7 @@ func Embeddings(reg *backend.Registry, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		if len(req.Input) == 0 {
+		if len(req.Input) == 0 || string(req.Input) == "null" || string(req.Input) == `""` || string(req.Input) == "[]" {
 			apierror.Write(w, apierror.InvalidParam("input", "input is required"))
 			return
 		}

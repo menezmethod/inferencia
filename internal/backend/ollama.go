@@ -45,15 +45,18 @@ func (o *Ollama) Health(ctx context.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
 		return fmt.Errorf("ollama health check: status %d", resp.StatusCode)
 	}
 	return nil
 }
 
 func (o *Ollama) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
-	req.Stream = false
+	// Copy to avoid mutating the caller's request.
+	local := req
+	local.Stream = false
 
-	body, err := json.Marshal(req)
+	body, err := json.Marshal(local)
 	if err != nil {
 		return nil, fmt.Errorf("marshal chat request: %w", err)
 	}
@@ -83,9 +86,11 @@ func (o *Ollama) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResp
 }
 
 func (o *Ollama) ChatCompletionStream(ctx context.Context, req ChatRequest, send StreamFunc) error {
-	req.Stream = true
+	// Copy to avoid mutating the caller's request.
+	local := req
+	local.Stream = true
 
-	body, err := json.Marshal(req)
+	body, err := json.Marshal(local)
 	if err != nil {
 		return fmt.Errorf("marshal chat request: %w", err)
 	}
@@ -109,6 +114,8 @@ func (o *Ollama) ChatCompletionStream(ctx context.Context, req ChatRequest, send
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
+	// Increase scanner buffer from default 64KB to 1MB for large SSE payloads.
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data: ") {

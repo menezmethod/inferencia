@@ -7,6 +7,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -158,6 +159,8 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("INFERENCIA_PORT"); v != "" {
 		if port, err := strconv.Atoi(v); err == nil {
 			cfg.Server.Port = port
+		} else {
+			slog.Warn("invalid INFERENCIA_PORT, using default", "value", v, "err", err)
 		}
 	}
 	if v := os.Getenv("INFERENCIA_AUTH_KEYS_FILE"); v != "" {
@@ -184,11 +187,15 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("INFERENCIA_RATELIMIT_RPS"); v != "" {
 		if rps, err := strconv.ParseFloat(v, 64); err == nil {
 			cfg.RateLimit.RequestsPerSecond = rps
+		} else {
+			slog.Warn("invalid INFERENCIA_RATELIMIT_RPS, using default", "value", v, "err", err)
 		}
 	}
 	if v := os.Getenv("INFERENCIA_RATELIMIT_BURST"); v != "" {
 		if burst, err := strconv.Atoi(v); err == nil {
 			cfg.RateLimit.Burst = burst
+		} else {
+			slog.Warn("invalid INFERENCIA_RATELIMIT_BURST, using default", "value", v, "err", err)
 		}
 	}
 	if v := os.Getenv("INFERENCIA_BACKEND_URL"); v != "" && len(cfg.Backends) > 0 {
@@ -197,50 +204,78 @@ func applyEnvOverrides(cfg *Config) {
 
 	// TTS backend env vars.
 	if v := os.Getenv("INFERENCIA_KOKORO_URL"); v != "" {
-		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
-			Name:    "kokoro",
-			URL:     strings.TrimSpace(v),
-			Timeout: 30 * time.Second,
-		})
+		if !ttsBackendExists(cfg.TTSBackends, "kokoro") {
+			cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+				Name:    "kokoro",
+				URL:     strings.TrimSpace(v),
+				Timeout: 30 * time.Second,
+			})
+		}
 	}
 	if v := os.Getenv("INFERENCIA_CHATTERBOX_URL"); v != "" {
-		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
-			Name:    "chatterbox",
-			URL:     strings.TrimSpace(v),
-			Timeout: 30 * time.Second,
-		})
+		if !ttsBackendExists(cfg.TTSBackends, "chatterbox") {
+			cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+				Name:    "chatterbox",
+				URL:     strings.TrimSpace(v),
+				Timeout: 30 * time.Second,
+			})
+		}
 	}
 	if v := os.Getenv("INFERENCIA_MISOTTS_URL"); v != "" {
-		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
-			Name:    "misotts",
-			URL:     strings.TrimSpace(v),
-			Timeout: 30 * time.Second,
-		})
+		if !ttsBackendExists(cfg.TTSBackends, "misotts") {
+			cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+				Name:    "misotts",
+				URL:     strings.TrimSpace(v),
+				Timeout: 30 * time.Second,
+			})
+		}
 	}
 	if v := os.Getenv("INFERENCIA_ELEVENLABS_URL"); v != "" {
-		cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
-			Name:    "elevenlabs",
-			URL:     strings.TrimSpace(v),
-			Timeout: 30 * time.Second,
-		})
+		if !ttsBackendExists(cfg.TTSBackends, "elevenlabs") {
+			cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
+				Name:    "elevenlabs",
+				URL:     strings.TrimSpace(v),
+				Timeout: 30 * time.Second,
+			})
+		}
 	}
 
 	// Watchdog env vars.
 	if v := os.Getenv("INFERENCIA_WATCHDOG_INTERVAL"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.Watchdog.Interval = d
+		} else {
+			slog.Warn("invalid INFERENCIA_WATCHDOG_INTERVAL, using default", "value", v, "err", err)
 		}
 	}
 	if v := os.Getenv("INFERENCIA_WATCHDOG_FAIL_THRESHOLD"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			cfg.Watchdog.FailThreshold = n
+		} else if err != nil {
+			slog.Warn("invalid INFERENCIA_WATCHDOG_FAIL_THRESHOLD, using default", "value", v, "err", err)
+		} else {
+			slog.Warn("invalid INFERENCIA_WATCHDOG_FAIL_THRESHOLD, must be positive, using default", "value", v)
 		}
 	}
 	if v := os.Getenv("INFERENCIA_WATCHDOG_TIMEOUT"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
 			cfg.Watchdog.RequestTimeout = d
+		} else {
+			slog.Warn("invalid INFERENCIA_WATCHDOG_TIMEOUT, using default", "value", v, "err", err)
 		}
 	}
+}
+
+// ttsBackendExists checks whether a TTS backend with the given name is already
+// registered in the slice. Used to prevent duplicates when env vars overlap
+// with YAML configuration.
+func ttsBackendExists(backends []TTSBackend, name string) bool {
+	for _, b := range backends {
+		if b.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // validate checks that the configuration is internally consistent.

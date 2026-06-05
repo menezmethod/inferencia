@@ -20,8 +20,8 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://your-inferencia.example.com
-    description: Your deployment (replace with your base URL)
+  - url: https://llm.menezmethod.com
+    description: Production deployment (Coolify + Cloudflare Tunnel)
   - url: http://localhost:8080
     description: Local development
 
@@ -38,6 +38,8 @@ tags:
     description: Text-to-speech synthesis via local TTS backends.
   - name: Observability
     description: Prometheus metrics endpoint (no authentication required).
+  - name: Version
+    description: Build version info.
 
 paths:
   /metrics:
@@ -56,26 +58,137 @@ paths:
               schema:
                 type: string
 
-  /health:
+  /version:
     get:
-      operationId: healthLiveness
-      tags: [Health]
-      summary: Liveness probe
-      description: Returns 200 when the process is running. Suitable for container liveness checks.
+      operationId: getVersion
+      tags: [Version]
+      summary: Version info
+      description: Returns build version and optional commit hash.
       responses:
         "200":
-          description: Server is alive.
+          description: Version info.
           content:
             application/json:
               schema:
                 type: object
-                required: [status]
+                required: [version]
                 properties:
-                  status:
+                  version:
                     type: string
-                    enum: [ok]
+                    example: "1.0.0"
+                  commit:
+                    type: string
+                    example: abc1234
               example:
-                status: ok
+                version: "1.0.0"
+                commit: abc1234
+
+  /health:
+    get:
+      operationId: healthLiveness
+      tags: [Health]
+      summary: Liveness + comprehensive health
+      description: |
+        Returns a comprehensive per-service health breakdown with model/voice
+        inventory for all registered backends (chat, embed, TTS). Includes an
+        aggregate summary.
+
+        Suitable for container liveness checks.
+      responses:
+        "200":
+          description: All services healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatusResponse"
+              example:
+                status: healthy
+                version: "1.0.0"
+                timestamp: "2026-06-05T00:49:40Z"
+                services:
+                  ollama:
+                    status: healthy
+                    models:
+                      - id: gemma4:e4b
+                        object: model
+                        owned_by: ollama
+                      - id: nomic-embed-text:latest
+                        object: model
+                        owned_by: ollama
+                  kokoro:
+                    status: healthy
+                    models:
+                      - id: af_bella
+                        object: voice
+                        owned_by: af_bella
+                  chatterbox:
+                    status: healthy
+                    models:
+                      - id: chatterbox-default
+                        object: voice
+                        owned_by: chatterbox-default
+                summary:
+                  total: 3
+                  healthy: 3
+                  unhealthy: 0
+                  by_type:
+                    chat: 1
+                    tts: 2
+        "503":
+          description: One or more services are degraded or unreachable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatusResponse"
+              example:
+                status: degraded
+                version: "1.0.0"
+                timestamp: "2026-06-05T00:49:40Z"
+                services:
+                  ollama:
+                    status: healthy
+                    models:
+                      - id: gemma4:e4b
+                        object: model
+                        owned_by: ollama
+                  kokoro:
+                    status: unhealthy
+                    error: "tts health check: dial tcp 192.168.0.109:50051: connect: connection refused"
+                  chatterbox:
+                    status: unhealthy
+                    error: "tts health check: dial tcp 192.168.0.109:50052: connect: connection refused"
+                summary:
+                  total: 3
+                  healthy: 1
+                  unhealthy: 2
+                  by_type:
+                    chat: 1
+                    tts: 2
+
+  /health/status:
+    get:
+      operationId: healthStatus
+      tags: [Health]
+      summary: Consolidated health status
+      description: |
+        Returns a per-service breakdown of all registered backends (chat, embed,
+        TTS). Includes model/voice inventory and aggregate summary.
+
+        Returns the same comprehensive response as GET /health.
+        Used by the Docker HEALTHCHECK and the background watchdog.
+      responses:
+        "200":
+          description: All backends healthy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatusResponse"
+        "503":
+          description: One or more backends are degraded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatusResponse"
 
   /health/ready:
     get:
@@ -83,9 +196,11 @@ paths:
       tags: [Health]
       summary: Readiness probe
       description: |
-        Returns 200 only when every registered backend is reachable.
+        Returns 200 only when every registered chat/embed backend is reachable.
         Returns 503 with the failing backend name and error detail otherwise.
         Suitable for load-balancer and container readiness checks.
+
+        NOTE: This endpoint only checks chat/embed backends (not TTS).
       responses:
         "200":
           description: All backends healthy.
@@ -98,8 +213,12 @@ paths:
                   status:
                     type: string
                     enum: [ready]
+                  version:
+                    type: string
+                    description: Build version.
               example:
                 status: ready
+                version: "1.0.0"
         "503":
           description: At least one backend is unreachable.
           content:
@@ -117,50 +236,14 @@ paths:
                   error:
                     type: string
                     description: Human-readable error detail.
+                  version:
+                    type: string
+                    description: Build version.
               example:
                 status: unavailable
-                backend: mlx
-                error: "mlx health check: dial tcp 192.168.0.x:11973: connect: connection refused"
-
-  /health/status:
-    get:
-      operationId: healthStatus
-      tags: [Health]
-      summary: Consolidated health status
-      description: |
-        Returns a per-service breakdown of all registered backends (chat, embed,
-        TTS). Used by the Docker HEALTHCHECK and the background watchdog.
-        Returns 200 when all services are healthy, 503 when any are degraded.
-      responses:
-        "200":
-          description: All backends healthy.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatusResponse"
-              example:
-                status: healthy
+                backend: ollama
+                error: "ollama health check: dial tcp 192.168.0.109:11434: connect: connection refused"
                 version: "1.0.0"
-                services:
-                  ollama:
-                    status: healthy
-                  kokoro:
-                    status: healthy
-        "503":
-          description: One or more backends are degraded.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatusResponse"
-              example:
-                status: degraded
-                version: "1.0.0"
-                services:
-                  ollama:
-                    status: healthy
-                  kokoro:
-                    status: unhealthy
-                    error: "tts health check: status 500"
 
   /v1/audio/speech:
     post:
@@ -170,6 +253,10 @@ paths:
       description: |
         Generates audio from text input using a local TTS backend.
         Compatible with the OpenAI TTS API. The response body is raw audio bytes.
+
+        **Backend selection** — Use the `model` field to select:
+        - `"kokoro"` — 21 voices available, default `af_bella`
+        - `"chatterbox"` — 1 voice (`chatterbox-default`), omit `voice` field
       security:
         - bearerAuth: []
       requestBody:
@@ -180,9 +267,9 @@ paths:
               $ref: "#/components/schemas/TTSRequest"
             example:
               model: kokoro
-              input: "Hello world, this is a test."
+              input: "Hello world, this is a test of the TTS system."
               voice: af_bella
-              response_format: mp3
+              response_format: wav
               speed: 1.0
       responses:
         "200":
@@ -197,6 +284,14 @@ paths:
                 type: string
                 format: binary
             audio/opus:
+              schema:
+                type: string
+                format: binary
+            audio/flac:
+              schema:
+                type: string
+                format: binary
+            audio/L16:
               schema:
                 type: string
                 format: binary
@@ -232,15 +327,11 @@ paths:
               example:
                 object: list
                 data:
-                  - id: qwen3:32b
+                  - id: gemma4:e4b
                     object: model
                     created: 0
                     owned_by: ollama
-                  - id: qwen3.6:35b-a3b-coding-bf16
-                    object: model
-                    created: 0
-                    owned_by: ollama
-                  - id: mlx-community/Llama-3.2-3B-Instruct-4bit
+                  - id: nomic-embed-text:latest
                     object: model
                     created: 0
                     owned_by: ollama
@@ -276,7 +367,7 @@ paths:
               simple:
                 summary: Simple message
                 value:
-                  model: qwen3.6:35b-a3b-coding-bf16
+                  model: gemma4:e4b
                   messages:
                     - role: user
                       content: "What is 2+2?"
@@ -284,7 +375,7 @@ paths:
               streaming:
                 summary: Streaming
                 value:
-                  model: qwen3.6:35b-a3b-coding-bf16
+                  model: gemma4:e4b
                   messages:
                     - role: user
                       content: "Hello!"
@@ -292,7 +383,7 @@ paths:
               tool_calling:
                 summary: Tool calling
                 value:
-                  model: qwen3.6:35b-a3b-coding-bf16
+                  model: gemma4:e4b
                   messages:
                     - role: user
                       content: "What is the weather in SF?"
@@ -325,7 +416,7 @@ paths:
                 id: chatcmpl-abc123
                 object: chat.completion
                 created: 1677858242
-                model: qwen3.6:35b-a3b-coding-bf16
+                model: gemma4:e4b
                 choices:
                   - index: 0
                     message:
@@ -339,7 +430,7 @@ paths:
             text/event-stream:
               schema:
                 type: string
-                description: "SSE stream. Each event is data: {json}\\n\\n, terminated by data: [DONE]\\n\\n."
+                description: "SSE stream. Each event is data: {json}\n\n, terminated by data: [DONE]\n\n."
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -364,7 +455,7 @@ paths:
             schema:
               $ref: "#/components/schemas/EmbeddingRequest"
             example:
-              model: mlx-community/Qwen3-Embedding-4B-4bit-DWQ
+              model: nomic-embed-text:latest
               input: "The quick brown fox jumps over the lazy dog."
       responses:
         "200":
@@ -384,7 +475,7 @@ paths:
                   - object: embedding
                     index: 0
                     embedding: [0.0023, -0.0094, 0.0157]
-                model: mlx-community/Qwen3-Embedding-4B-4bit-DWQ
+                model: nomic-embed-text:latest
                 usage:
                   prompt_tokens: 11
                   completion_tokens: 0
@@ -406,7 +497,7 @@ components:
       bearerFormat: "sk-..."
       description: |
         API key passed as a Bearer token. Obtain a key from the administrator.
-        Example: `Authorization: Bearer sk-your-api-key`
+        Example: `Authorization: Bearer sk-your-key`
 
   headers:
     X-RateLimit-Limit:
@@ -441,7 +532,7 @@ components:
         id:
           type: string
           description: Unique model identifier.
-          example: qwen3.6:35b-a3b-coding-bf16
+          example: gemma4:e4b
         object:
           type: string
           enum: [model]
@@ -452,7 +543,7 @@ components:
         owned_by:
           type: string
           description: Organization or system that owns the model.
-          example: mlx-knife-2.0
+          example: ollama
 
     # ── Chat Completions ────────────────────────────────────────────────
     ChatCompletionRequest:
@@ -461,8 +552,8 @@ components:
       properties:
         model:
           type: string
-          description: Model ID to use. Must match an ID from `/v1/models`.
-          example: qwen3.6:35b-a3b-coding-bf16
+          description: Model ID to use. Defaults to `gemma4:e4b` when omitted.
+          example: gemma4:e4b
         messages:
           type: array
           minItems: 1
@@ -671,7 +762,7 @@ components:
         model:
           type: string
           description: Model ID to use for embedding generation.
-          example: mlx-community/Qwen3-Embedding-4B-4bit-DWQ
+          example: nomic-embed-text:latest
         input:
           description: Text to embed. A string or array of strings.
           oneOf:
@@ -720,17 +811,53 @@ components:
     # ── Health Status ────────────────────────────────────────────────────
     HealthStatusResponse:
       type: object
-      required: [status, version, services]
+      required: [status, version, timestamp, services, summary]
       properties:
         status:
           type: string
           enum: [healthy, degraded]
+          description: Overall system health.
         version:
           type: string
+          description: Build version.
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO 8601 timestamp of the health check.
+          example: "2026-06-05T00:49:40Z"
         services:
           type: object
+          description: Per-service health breakdown keyed by backend name.
           additionalProperties:
             $ref: "#/components/schemas/ServiceStatus"
+        summary:
+          $ref: "#/components/schemas/HealthSummary"
+
+    HealthSummary:
+      type: object
+      required: [total, healthy, unhealthy, by_type]
+      properties:
+        total:
+          type: integer
+          description: Total number of registered backends.
+          example: 3
+        healthy:
+          type: integer
+          description: Number of healthy backends.
+          example: 3
+        unhealthy:
+          type: integer
+          description: Number of unhealthy backends.
+          example: 0
+        by_type:
+          type: object
+          description: Breakdown by backend type (chat, embed, tts).
+          additionalProperties:
+            type: integer
+          example:
+            chat: 1
+            tts: 2
 
     ServiceStatus:
       type: object
@@ -739,9 +866,32 @@ components:
         status:
           type: string
           enum: [healthy, unhealthy]
+          description: Whether this specific backend is reachable and responding.
         error:
           type: string
-          description: Error message when status is unhealthy.
+          description: Error message when status is unhealthy. Omitted when healthy.
+        models:
+          type: array
+          description: Available models or voices from this backend. Omitted when unhealthy.
+          items:
+            $ref: "#/components/schemas/ModelBrief"
+
+    ModelBrief:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: Model or voice identifier.
+          example: gemma4:e4b
+        object:
+          type: string
+          description: Type of item (`"model"` for chat/embed, `"voice"` for TTS).
+          example: model
+        owned_by:
+          type: string
+          description: Backend or provider that owns this item.
+          example: ollama
 
     # ── TTS ──────────────────────────────────────────────────────────────
     TTSRequest:
@@ -751,14 +901,16 @@ components:
         model:
           type: string
           default: kokoro
-          description: TTS model/backend to use.
+          description: TTS backend to use (`"kokoro"` or `"chatterbox"`).
         input:
           type: string
           description: Text to synthesize.
         voice:
           type: string
           default: af_bella
-          description: Voice identifier.
+          description: |
+            Voice identifier for Kokoro (21 voices available).
+            Do NOT include when using Chatterbox backend.
         response_format:
           type: string
           enum: [mp3, wav, opus, flac, pcm]

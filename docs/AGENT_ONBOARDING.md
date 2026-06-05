@@ -1,89 +1,64 @@
-# inferencia API
+# inferencia API — Agent & Client Onboarding
 
-OpenAI-compatible REST API for chat completions, embeddings, and model management. Deploy your own instance (e.g. with Coolify). Default chat model fallback (when `model` is omitted): **qwen3.6:35b-a3b-coding-bf16**.
+A lightweight, production-grade AI gateway that exposes local LLM and TTS servers through an OpenAI-compatible REST API. Hosted on a Raspberry Pi 5 with all ML compute running on a Mac M4 Max over LAN.
 
-**Base URL** — Replace with your deployment URL.
+**Default chat model (when `model` is omitted):** `gemma4:e4b`
 
-```
-https://your-inferencia.example.com/v1
-```
+---
 
-**Interactive docs**
+## Base URL
 
 ```
-https://your-inferencia.example.com/docs
+https://llm.menezmethod.com/v1
 ```
+
+Interactive docs (Swagger UI):
+
+```
+https://llm.menezmethod.com/docs
+```
+
+---
 
 ## Authentication
 
 All `/v1/*` endpoints require a Bearer token in the `Authorization` header:
 
 ```
-Authorization: Bearer YOUR_API_KEY
+Authorization: Bearer sk-your-api-key-here
 ```
+
+Health endpoints (`/health`, `/health/status`, `/health/ready`), `/metrics`, `/version`, `/docs`, and `/openapi.yaml` do **not** require authentication.
 
 Contact the administrator to obtain an API key.
 
-## Rate limits
-
-Requests are rate-limited per API key using a token-bucket algorithm.
-
-| Header | Description |
-|--------|-------------|
-| `X-RateLimit-Limit` | Maximum burst size |
-| `X-RateLimit-Remaining` | Tokens remaining in the current window |
-| `Retry-After` | Seconds to wait (returned with 429 responses) |
-
-Default: 10 requests/second, burst of 20.
+---
 
 ## Endpoints
 
 | Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/health` | GET | No | Liveness probe |
-| `/health/ready` | GET | No | Readiness (backend connectivity) |
+|---|---|---|---|
+| `/health` | GET | No | Liveness + comprehensive health (same as `/health/status`) |
+| `/health/status` | GET | No | Comprehensive per-service health breakdown |
+| `/health/ready` | GET | No | Readiness probe (per-backend check) |
 | `/metrics` | GET | No | Prometheus metrics |
+| `/version` | GET | No | Build version info |
 | `/docs` | GET | No | Swagger UI |
 | `/openapi.yaml` | GET | No | OpenAPI 3.1 spec |
 | `/v1/models` | GET | Bearer | List available models |
 | `/v1/chat/completions` | POST | Bearer | Chat completions (streaming, tool calling) |
 | `/v1/embeddings` | POST | Bearer | Generate embeddings |
-
-**Metrics and logging:** See [METRICS_AND_LOGGING.md](METRICS_AND_LOGGING.md) for setting up Prometheus metrics and logging.
+| `/v1/audio/speech` | POST | Bearer | Text-to-speech synthesis |
 
 ---
 
-### GET /v1/models
+## Chat Completions
 
-Returns available models from the inference backend.
-
-```bash
-curl https://your-inferencia.example.com/v1/models \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-```json
-{
-  "object": "list",
-  "data": [
-    { "id": "qwen3:32b", "object": "model", "created": 0, "owned_by": "ollama" },
-    { "id": "qwen3.6:35b-a3b-coding-bf16", "object": "model", "created": 0, "owned_by": "ollama" },
-    { "id": "mlx-community/Llama-3.2-3B-Instruct-4bit", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
-    { "id": "mlx-community/granite-3.3-2b-instruct-4bit", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" },
-    { "id": "mlx-community/Qwen3-Embedding-4B-4bit-DWQ", "object": "model", "created": 0, "owned_by": "mlx-knife-2.0" }
-  ]
-}
-```
-
-### POST /v1/chat/completions
-
-Generates a model response for the given conversation.
-
-**Request body**
+**Request body** (OpenAI-compatible):
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `model` | string | Yes | Model ID from `/v1/models` |
+|---|---|---|---|
+| `model` | string | Yes | Model ID from `/v1/models` (default: `gemma4:e4b`) |
 | `messages` | array | Yes | Conversation messages (`role` + `content`) |
 | `temperature` | number | No | Sampling temperature (0–2) |
 | `max_tokens` | integer | No | Maximum tokens to generate |
@@ -96,44 +71,27 @@ Generates a model response for the given conversation.
 | `frequency_penalty` | number | No | Frequency penalty (-2 to 2) |
 | `response_format` | object | No | `{"type": "json_object"}` for JSON mode |
 
-**Example — simple** (default: 20B)
+### curl — simple
 
 ```bash
-curl https://your-inferencia.example.com/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_API_KEY" \
+curl https://llm.menezmethod.com/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.6:35b-a3b-coding-bf16",
+    "model": "gemma4:e4b",
     "messages": [{"role": "user", "content": "What is 2+2?"}],
     "max_tokens": 100
   }'
 ```
 
-Use `qwen3.6:35b-a3b-coding-bf16` (or another Ollama model tag available in your local runtime).
-
-```json
-{
-  "id": "chatcmpl-abc123",
-  "object": "chat.completion",
-  "created": 1677858242,
-  "model": "qwen3.6:35b-a3b-coding-bf16",
-  "choices": [{
-    "index": 0,
-    "message": { "role": "assistant", "content": "2+2 equals 4." },
-    "finish_reason": "stop"
-  }],
-  "usage": { "prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20 }
-}
-```
-
-**Example — streaming**
+### curl — streaming
 
 ```bash
-curl https://your-inferencia.example.com/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_API_KEY" \
+curl https://llm.menezmethod.com/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.6:35b-a3b-coding-bf16",
+    "model": "gemma4:e4b",
     "messages": [{"role": "user", "content": "Hello!"}],
     "stream": true
   }'
@@ -141,14 +99,14 @@ curl https://your-inferencia.example.com/v1/chat/completions \
 
 Responds with `Content-Type: text/event-stream`. Each event is `data: {json}\n\n`. The final event is `data: [DONE]\n\n`.
 
-**Example — tool calling**
+### curl — tool calling
 
 ```bash
-curl https://your-inferencia.example.com/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_API_KEY" \
+curl https://llm.menezmethod.com/v1/chat/completions \
+  -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "qwen3.6:35b-a3b-coding-bf16",
+    "model": "gemma4:e4b",
     "messages": [{"role": "user", "content": "What is the weather in SF?"}],
     "tools": [{
       "type": "function",
@@ -165,39 +123,176 @@ curl https://your-inferencia.example.com/v1/chat/completions \
   }'
 ```
 
-### POST /v1/embeddings
+### Python (openai SDK)
 
-Generates embedding vectors for text input.
+```python
+from openai import OpenAI
 
-**Request body**
+client = OpenAI(
+    base_url="https://llm.menezmethod.com/v1",
+    api_key="sk-your-api-key",
+)
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `model` | string | Yes | Embedding model ID |
-| `input` | string\|array | Yes | Text or array of texts to embed |
-| `encoding_format` | string | No | `"float"` (default) or `"base64"` |
+response = client.chat.completions.create(
+    model="gemma4:e4b",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)
+```
+
+### Node.js (openai SDK)
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://llm.menezmethod.com/v1",
+  apiKey: "sk-your-api-key",
+});
+
+const response = await client.chat.completions.create({
+  model: "gemma4:e4b",
+  messages: [{ role: "user", content: "Hello!" }],
+});
+console.log(response.choices[0].message.content);
+```
+
+### Environment Variables
+
+For any client that reads the standard OpenAI env vars:
 
 ```bash
-curl https://your-inferencia.example.com/v1/embeddings \
-  -H "Authorization: Bearer YOUR_API_KEY" \
+export OPENAI_BASE_URL=https://llm.menezmethod.com/v1
+export OPENAI_API_KEY=sk-your-api-key
+```
+
+---
+
+## Text-to-Speech (TTS)
+
+TTS is available via `/v1/audio/speech`. Select the backend using the `model` field.
+
+### TTS Backends
+
+| Backend | Port | Voices | Default Voice |
+|---|---|---|---|
+| Kokoro | `50051` | 21 voices | `af_bella` |
+| Chatterbox | `50052` | 1 voice (`chatterbox-default`) | `chatterbox-default` |
+
+### Kokoro Voices (21 total)
+
+`af_bella`, `af_heart`, `af_nicole`, `af_aoede`, `af_kore`, `af_sarah`, `af_nova`, `af_sky`, `am_michael`, `am_fenrir`, `am_puck`, `am_liam`, `am_onyx`, `am_echo`, `am_eric`, `bf_emma`, `bf_isabella`, `bm_george`, `bm_fable`, `bm_lewis`, `bm_robert`
+
+Default: `af_bella` (used if `voice` is omitted).
+
+### Request Parameters
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `model` | string | No | `kokoro` | Backend: `"kokoro"` or `"chatterbox"` |
+| `input` | string | Yes | — | Text to synthesize |
+| `voice` | string | No | `af_bella` | Voice ID (omit for Chatterbox) |
+| `response_format` | string | No | `wav` | `wav`, `mp3`, `opus`, `flac`, or `pcm` |
+| `speed` | number | No | `1.0` | Speech speed (0.25–4.0) |
+
+### Voice Selection Rules
+
+- **Kokoro**: Pass any of the 21 voices above. Defaults to `af_bella` if omitted.
+- **Chatterbox**: Do **not** include a `voice` field — it only accepts its single default.
+- Select the backend via the `model` field (`"kokoro"` or `"chatterbox"`).
+
+### curl — Kokoro TTS
+
+```bash
+curl https://llm.menezmethod.com/v1/audio/speech \
+  -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "mlx-community/Qwen3-Embedding-4B-4bit-DWQ",
+    "model": "kokoro",
+    "input": "Hello, this is a test of the Kokoro TTS engine.",
+    "voice": "af_bella",
+    "response_format": "wav"
+  }' --output speech.wav
+```
+
+### curl — Chatterbox TTS (no voice field)
+
+```bash
+curl https://llm.menezmethod.com/v1/audio/speech \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "chatterbox",
+    "input": "Hello, this is a test of Chatterbox.",
+    "response_format": "wav"
+  }' --output speech.wav
+```
+
+### Python — TTS
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://llm.menezmethod.com/v1",
+    api_key="sk-your-api-key",
+)
+
+# Kokoro TTS
+response = client.audio.speech.create(
+    model="kokoro",
+    voice="af_bella",
+    input="Hello from Kokoro!",
+    response_format="wav",
+)
+response.stream_to_file("speech.wav")
+
+# Chatterbox TTS (no voice parameter)
+response = client.audio.speech.create(
+    model="chatterbox",
+    input="Hello from Chatterbox!",
+    response_format="wav",
+)
+response.stream_to_file("speech_chatterbox.wav")
+```
+
+### Node.js — TTS
+
+```javascript
+import OpenAI from "openai";
+import fs from "fs";
+
+const client = new OpenAI({
+  baseURL: "https://llm.menezmethod.com/v1",
+  apiKey: "sk-your-api-key",
+});
+
+// Kokoro TTS
+const response = await client.audio.speech.create({
+  model: "kokoro",
+  voice: "af_bella",
+  input: "Hello from Kokoro!",
+  response_format: "wav",
+});
+const buffer = Buffer.from(await response.arrayBuffer());
+fs.writeFileSync("speech.wav", buffer);
+```
+
+---
+
+## Embeddings
+
+### curl
+
+```bash
+curl https://llm.menezmethod.com/v1/embeddings \
+  -H "Authorization: Bearer sk-your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nomic-embed-text:latest",
     "input": "The quick brown fox jumps over the lazy dog."
   }'
 ```
-
-### GET /health
-
-Liveness probe. Returns 200 if the server is running. No authentication required.
-
-### GET /health/ready
-
-Readiness probe. Returns 200 only when all backends are reachable. No authentication required.
-
-## Client SDKs
-
-Any OpenAI-compatible SDK works by changing the base URL.
 
 ### Python
 
@@ -205,42 +300,131 @@ Any OpenAI-compatible SDK works by changing the base URL.
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://your-inferencia.example.com/v1",
-    api_key="YOUR_API_KEY",
+    base_url="https://llm.menezmethod.com/v1",
+    api_key="sk-your-api-key",
 )
 
-response = client.chat.completions.create(
-    model="qwen3.6:35b-a3b-coding-bf16",
-    messages=[{"role": "user", "content": "Hello!"}],
+response = client.embeddings.create(
+    model="nomic-embed-text:latest",
+    input="The quick brown fox jumps over the lazy dog.",
 )
-print(response.choices[0].message.content)
+print(response.data[0].embedding)
 ```
 
-### Node.js
+---
 
-```javascript
-import OpenAI from "openai";
+## List Models
 
-const client = new OpenAI({
-  baseURL: "https://your-inferencia.example.com/v1",
-  apiKey: "YOUR_API_KEY",
-});
-
-const response = await client.chat.completions.create({
-  model: "qwen3.6:35b-a3b-coding-bf16",
-  messages: [{ role: "user", content: "Hello!" }],
-});
-console.log(response.choices[0].message.content);
-```
-
-### Environment variables
-
-For any client that reads the standard OpenAI env vars:
+### curl
 
 ```bash
-export OPENAI_BASE_URL=https://your-inferencia.example.com/v1
-export OPENAI_API_KEY=YOUR_API_KEY
+curl https://llm.menezmethod.com/v1/models \
+  -H "Authorization: Bearer sk-your-api-key"
 ```
+
+### Python
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://llm.menezmethod.com/v1",
+    api_key="sk-your-api-key",
+)
+
+models = client.models.list()
+for m in models.data:
+    print(f"{m.id} ({m.owned_by})")
+```
+
+---
+
+## Health Checks (no auth required)
+
+### `GET /health` and `GET /health/status`
+
+Same comprehensive response. Returns **200** if all services healthy, **503** if any service is degraded.
+
+```json
+{
+  "status": "healthy",
+  "version": "1.0.0",
+  "timestamp": "2026-06-05T00:49:40Z",
+  "services": {
+    "ollama": {
+      "status": "healthy",
+      "models": [
+        {"id": "gemma4:e4b", "object": "model", "owned_by": "ollama"},
+        {"id": "nomic-embed-text:latest", "object": "model", "owned_by": "ollama"}
+      ]
+    },
+    "kokoro": {
+      "status": "healthy",
+      "models": [
+        {"id": "af_bella", "object": "voice", "owned_by": "af_bella"},
+        {"id": "af_heart", "object": "voice", "owned_by": "af_heart"}
+      ]
+    },
+    "chatterbox": {
+      "status": "healthy",
+      "models": [
+        {"id": "chatterbox-default", "object": "voice", "owned_by": "chatterbox-default"}
+      ]
+    }
+  },
+  "summary": {
+    "total": 3,
+    "healthy": 3,
+    "unhealthy": 0,
+    "by_type": {
+      "chat": 1,
+      "tts": 2
+    }
+  }
+}
+```
+
+### `GET /health/ready`
+
+Returns **200** if all backends are reachable:
+
+```json
+{"status": "ready", "version": "1.0.0"}
+```
+
+Returns **503** with per-backend detail:
+
+```json
+{"status": "unavailable", "backend": "ollama", "error": "...", "version": "1.0.0"}
+```
+
+### `GET /version`
+
+```json
+{"version": "1.0.0", "commit": "abc1234"}
+```
+
+---
+
+## Available Models
+
+### Chat models (via Ollama on Mac M4 Max)
+
+- `gemma4:e4b` — **default**
+- `qwen3.5` (122b, 35b, 27b, 9b, 4b, 2b, 0.8b)
+- `qwen3` (0.6b)
+- `qwen3.6` (27b-code, 35b-code, 35a3b-mlx)
+- `gpt-oss:20b-cloud`
+
+### Embedding models
+
+- `nomic-embed-text:latest`
+
+### Vision models
+
+- `moondream:1.8b`
+
+---
 
 ## Errors
 
@@ -258,16 +442,76 @@ All errors follow the OpenAI error envelope format:
 ```
 
 | HTTP | Type | Code | Description |
-|------|------|------|-------------|
+|---|---|---|---|
 | 400 | `invalid_request_error` | — | Malformed request or missing required field |
 | 401 | `authentication_error` | `invalid_api_key` | Missing or invalid API key |
 | 429 | `rate_limit_error` | `rate_limit_exceeded` | Per-key rate limit exceeded |
 | 500 | `server_error` | — | Unexpected server failure |
 | 503 | `backend_error` | `backend_unavailable` | Inference backend unreachable |
 
-## OpenAPI specification
+---
 
-The full OpenAPI 3.1 spec is available at:
+## Rate Limits
 
-- **YAML**: `https://your-inferencia.example.com/openapi.yaml`
-- **Swagger UI**: `https://your-inferencia.example.com/docs`
+Requests are rate-limited per API key using a token-bucket algorithm.
+
+| Header | Description |
+|---|---|
+| `X-RateLimit-Limit` | Maximum burst size |
+| `X-RateLimit-Remaining` | Tokens remaining in the current window |
+| `Retry-After` | Seconds to wait (returned with 429 responses) |
+
+Default: 10 requests/second, burst of 20.
+
+---
+
+## Client SDKs
+
+Any OpenAI-compatible SDK works by changing the `base_url` and `api_key`.
+
+### Python (openai SDK)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://llm.menezmethod.com/v1",
+    api_key="sk-your-api-key",
+)
+```
+
+### Node.js (openai SDK)
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://llm.menezmethod.com/v1",
+  apiKey: "sk-your-api-key",
+});
+```
+
+### Environment Variables
+
+```bash
+export OPENAI_BASE_URL=https://llm.menezmethod.com/v1
+export OPENAI_API_KEY=sk-your-api-key
+```
+
+---
+
+## Architecture (for context)
+
+```
+Internet → Cloudflare Tunnel → Pi5:80 → Traefik → inferencia:8080
+                                                         │
+                            ┌────────────────────────────┴────────────────────────────┐
+                            ↓                                                         ↓
+                   Ollama (:11434)                            Kokoro (:50051) / Chatterbox (:50052)
+                   (chat, embed)                                       (TTS)
+                   Mac M4 Max — 192.168.0.109
+```
+
+- **Raspberry Pi 5** — Runs only inferencia (Go binary, ~20 MB). No ML models.
+- **Mac M4 Max (128 GB)** — All ML models: Ollama (`:11434`), Kokoro TTS (`:50051`), Chatterbox TTS (`:50052`).
+- All backend communication is over the local LAN.

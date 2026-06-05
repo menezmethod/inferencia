@@ -111,9 +111,9 @@ func waitForHealth(ctx context.Context, baseURL string) error {
 		resp, err := client.Do(req)
 		if err == nil {
 			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
+			// Server is alive — any response means the app started.
+			// Backends may report unhealthy in CI (no Ollama), that's fine.
+			return nil
 		}
 		select {
 		case <-ctx.Done():
