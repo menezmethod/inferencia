@@ -158,6 +158,102 @@ var _ = Describe("HealthStatus", func() {
 			Expect(resp.Services["_none"].Status).To(Equal("unhealthy"))
 		})
 	})
+
+	When("a healthy backend returns models", func() {
+		It("includes the model list in health status", func() {
+			mock := &mockBackend{
+				healthErr: nil,
+				modelsResp: &backend.ModelsResponse{
+					Object: "list",
+					Data: []backend.Model{
+						{ID: "gemma4:e4b", Object: "model", OwnedBy: "local"},
+						{ID: "llama3.2", Object: "model", OwnedBy: "local"},
+					},
+				},
+			}
+			reg := newTestRegistry(mock)
+			h := HealthStatus(reg, nil)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Services["mock"].Models).To(HaveLen(2))
+			Expect(resp.Services["mock"].Models[0].ID).To(Equal("gemma4:e4b"))
+			Expect(resp.Services["mock"].Models[1].ID).To(Equal("llama3.2"))
+			Expect(resp.Summary.Total).To(Equal(1))
+			Expect(resp.Summary.Healthy).To(Equal(1))
+			Expect(resp.Timestamp).NotTo(BeEmpty())
+		})
+	})
+
+	When("a TTS backend returns voices", func() {
+		It("includes the voice list in health status", func() {
+			mock := &mockBackend{healthErr: nil}
+			reg := newTestRegistry(mock)
+			ttsMock := &mockTTSBackend{
+				name:      "kokoro",
+				healthErr: nil,
+				voices: []backend.Voice{
+					{ID: "af_bella", Name: "af_bella", Gender: "female"},
+					{ID: "am_michael", Name: "am_michael", Gender: "male"},
+				},
+			}
+			ttsReg := newTestTTSRegistry(ttsMock)
+			h := HealthStatus(reg, ttsReg)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Services["kokoro"].Models).To(HaveLen(2))
+			Expect(resp.Services["kokoro"].Models[0].ID).To(Equal("af_bella"))
+			Expect(resp.Summary.Total).To(Equal(2))
+			Expect(resp.Summary.Healthy).To(Equal(2))
+			Expect(resp.Summary.ByType).To(HaveKeyWithValue("chat", 1))
+			Expect(resp.Summary.ByType).To(HaveKeyWithValue("tts", 1))
+		})
+	})
+
+	When("a backend has models but a TTS is unhealthy", func() {
+		It("includes models for healthy backends only", func() {
+			chatMock := &mockBackend{
+				healthErr: nil,
+				modelsResp: &backend.ModelsResponse{
+					Object: "list",
+					Data:   []backend.Model{{ID: "gemma4:e4b", Object: "model", OwnedBy: "local"}},
+				},
+			}
+			reg := newTestRegistry(chatMock)
+			ttsMock := &mockTTSBackend{
+				name:      "chatterbox",
+				healthErr: errors.New("connection timeout"),
+			}
+			ttsReg := newTestTTSRegistry(ttsMock)
+			h := HealthStatus(reg, ttsReg)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Status).To(Equal("degraded"))
+			Expect(resp.Services["mock"].Models).To(HaveLen(1))
+			Expect(resp.Services["mock"].Models[0].ID).To(Equal("gemma4:e4b"))
+			Expect(resp.Services["chatterbox"].Models).To(BeEmpty())
+			Expect(resp.Summary.Total).To(Equal(2))
+			Expect(resp.Summary.Healthy).To(Equal(1))
+			Expect(resp.Summary.Unhealthy).To(Equal(1))
+		})
+	})
 })
 
 var _ = Describe("Models", func() {
