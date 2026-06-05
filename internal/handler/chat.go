@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -19,7 +20,7 @@ const defaultChatModel = "qwen3.6:35b-a3b-coding-bf16"
 // standard JSON responses and streaming SSE responses.
 //
 //	POST /v1/chat/completions
-func ChatCompletions(reg *backend.Registry, logger *slog.Logger) http.HandlerFunc {
+func ChatCompletions(reg *backend.Registry, hc backend.HealthChecker, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req backend.ChatRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -35,9 +36,9 @@ func ChatCompletions(reg *backend.Registry, logger *slog.Logger) http.HandlerFun
 			req.Model = defaultChatModel
 		}
 
-		b, err := reg.Primary()
+		b, err := reg.PrimaryHealthy(hc)
 		if err != nil {
-			apierror.Write(w, apierror.BackendUnavailable("default"))
+			apierror.Write(w, backendSelectError(reg, err))
 			return
 		}
 
@@ -55,7 +56,7 @@ func handleJSON(w http.ResponseWriter, r *http.Request, b backend.Backend, req b
 	resp, err := b.ChatCompletion(r.Context(), req)
 	if err != nil {
 		logger.Error("chat completion failed", "backend", b.Name(), "err", err)
-		apierror.Write(w, apierror.BackendUnavailable(b.Name()))
+		apierror.Write(w, apierror.FromBackendError(b.Name(), err))
 		return
 	}
 
@@ -81,13 +82,12 @@ func handleStream(w http.ResponseWriter, r *http.Request, b backend.Backend, req
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no") // Disable nginx buffering if behind reverse proxy.
+	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
 	var mu sync.Mutex
 	send := func(data []byte) error {
-		// Check if client disconnected.
 		if r.Context().Err() != nil {
 			return r.Context().Err()
 		}
@@ -113,8 +113,17 @@ func handleStream(w http.ResponseWriter, r *http.Request, b backend.Backend, req
 	}
 
 	if err := b.ChatCompletionStream(r.Context(), req, send); err != nil {
-		// If streaming already started, we can't send an error response.
-		// Log it and let the client handle the broken stream.
 		logger.Error("stream error", "backend", b.Name(), "err", err)
 	}
+}
+
+func backendSelectError(reg *backend.Registry, err error) *apierror.Error {
+	name := reg.PrimaryName()
+	if name == "" {
+		name = "default"
+	}
+	if errors.Is(err, backend.ErrNoHealthyBackend) || errors.Is(err, backend.ErrBackendNotFound) {
+		return apierror.BackendUnavailable(name)
+	}
+	return apierror.BackendUnavailable(name)
 }

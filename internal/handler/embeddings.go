@@ -12,7 +12,7 @@ import (
 // Embeddings handles embedding creation requests.
 //
 //	POST /v1/embeddings
-func Embeddings(reg *backend.Registry, logger *slog.Logger) http.HandlerFunc {
+func Embeddings(reg *backend.Registry, hc backend.HealthChecker, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req backend.EmbedRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -25,16 +25,16 @@ func Embeddings(reg *backend.Registry, logger *slog.Logger) http.HandlerFunc {
 			return
 		}
 
-		b, err := reg.Primary()
+		b, err := reg.PrimaryHealthy(hc)
 		if err != nil {
-			apierror.Write(w, apierror.BackendUnavailable("default"))
+			apierror.Write(w, backendSelectError(reg, err))
 			return
 		}
 
 		resp, err := b.CreateEmbedding(r.Context(), req)
 		if err != nil {
 			logger.Error("create embedding failed", "backend", b.Name(), "err", err)
-			apierror.Write(w, apierror.BackendUnavailable(b.Name()))
+			apierror.Write(w, apierror.FromBackendError(b.Name(), err))
 			return
 		}
 

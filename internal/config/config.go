@@ -50,10 +50,11 @@ type Auth struct {
 
 // Backend configures a single LLM backend.
 type Backend struct {
-	Name    string        `yaml:"name"`
-	Type    string        `yaml:"type"`
-	URL     string        `yaml:"url"`
-	Timeout time.Duration `yaml:"timeout"`
+	Name          string        `yaml:"name"`
+	Type          string        `yaml:"type"`
+	URL           string        `yaml:"url"`
+	Timeout       time.Duration `yaml:"timeout"`        // inference timeout (chat, embeddings); 0 disables client timeout
+	HealthTimeout time.Duration `yaml:"health_timeout"` // health probes and model listing
 }
 
 // TTSBackend configures a single TTS backend.
@@ -97,10 +98,11 @@ func Defaults() Config {
 		},
 		Backends: []Backend{
 			{
-				Name:    "ollama",
-				Type:    "ollama",
-				URL:     "http://localhost:11434",
-				Timeout: 60 * time.Second,
+				Name:          "ollama",
+				Type:          "ollama",
+				URL:           "http://localhost:11434",
+				Timeout:       300 * time.Second,
+				HealthTimeout: 5 * time.Second,
 			},
 		},
 		RateLimit: RateLimit{

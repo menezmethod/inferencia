@@ -18,7 +18,8 @@ import (
 )
 
 // New creates a configured *http.Server with all routes and middleware wired.
-func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *slog.Logger) *http.Server {
+// hc may be nil (treats all backends as healthy) or a watchdog for degraded-backend skipping.
+func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, hc backend.HealthChecker, logger *slog.Logger) *http.Server {
 	mux := http.NewServeMux()
 	rl := middleware.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
 
@@ -44,9 +45,9 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *sl
 	mux.Handle("GET /metrics", promhttp.Handler())
 
 	// OpenAI-compatible API endpoints — auth + rate limiting required.
-	mux.Handle("POST /v1/chat/completions", protected(handler.ChatCompletions(reg, logger)))
-	mux.Handle("GET /v1/models", protected(handler.Models(reg, logger)))
-	mux.Handle("POST /v1/embeddings", protected(handler.Embeddings(reg, logger)))
+	mux.Handle("POST /v1/chat/completions", protected(handler.ChatCompletions(reg, hc, logger)))
+	mux.Handle("GET /v1/models", protected(handler.Models(reg, hc, logger)))
+	mux.Handle("POST /v1/embeddings", protected(handler.Embeddings(reg, hc, logger)))
 
 	return &http.Server{
 		Addr:              cfg.Server.Addr(),
@@ -65,14 +66,14 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, logger *sl
 //
 // Usage:
 //
-//	srv := server.New(cfg, reg, ks, logger)
+//	srv := server.New(cfg, reg, ks, wd, logger)
 //	server.RegisterTTSRoutes(srv, rtr, logger)
-func RegisterTTSRoutes(srv *http.Server, rtr *router.Registry, logger *slog.Logger, protected func(http.Handler) http.Handler) {
+func RegisterTTSRoutes(srv *http.Server, rtr *router.Registry, hc backend.HealthChecker, logger *slog.Logger, protected func(http.Handler) http.Handler) {
 	if srv.Handler == nil || rtr == nil {
 		return
 	}
 	if mux, ok := srv.Handler.(*http.ServeMux); ok {
-		mux.Handle("POST /v1/audio/speech", protected(handler.Audio(rtr, logger)))
+		mux.Handle("POST /v1/audio/speech", protected(handler.Audio(rtr, hc, logger)))
 	}
 }
 
@@ -92,7 +93,7 @@ func RegisterTTSRoute(mux *http.ServeMux, rtr *router.Registry, ks *auth.KeyStor
 			middleware.RateLimit(rl),
 		)
 	}
-	mux.Handle("POST /v1/audio/speech", protected(handler.Audio(rtr, logger)))
+	mux.Handle("POST /v1/audio/speech", protected(handler.Audio(rtr, nil, logger)))
 }
 
 // RegisterHealthStatusRoute adds the consolidated /health and /health/status endpoints.

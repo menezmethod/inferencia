@@ -12,18 +12,18 @@ import (
 // Models handles model listing requests.
 //
 //	GET /v1/models
-func Models(reg *backend.Registry, logger *slog.Logger) http.HandlerFunc {
+func Models(reg *backend.Registry, hc backend.HealthChecker, logger *slog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		b, err := reg.Primary()
+		b, err := reg.PrimaryHealthy(hc)
 		if err != nil {
-			apierror.Write(w, apierror.BackendUnavailable("default"))
+			apierror.Write(w, backendSelectError(reg, err))
 			return
 		}
 
 		resp, err := b.ListModels(r.Context())
 		if err != nil {
 			logger.Error("list models failed", "backend", b.Name(), "err", err)
-			apierror.Write(w, apierror.BackendUnavailable(b.Name()))
+			apierror.Write(w, apierror.FromBackendError(b.Name(), err))
 			return
 		}
 

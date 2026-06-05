@@ -83,6 +83,22 @@ var _ = Describe("BackendUnavailable", func() {
 	})
 })
 
+var _ = Describe("BackendTimeout", func() {
+	It("returns 504 with backend_timeout code", func() {
+		e := BackendTimeout("ollama")
+		Expect(e.Status).To(Equal(504))
+		Expect(e.Code).To(Equal("backend_timeout"))
+	})
+})
+
+var _ = Describe("BackendOverloaded", func() {
+	It("returns 503 with backend_overloaded code", func() {
+		e := BackendOverloaded("ollama")
+		Expect(e.Status).To(Equal(http.StatusServiceUnavailable))
+		Expect(e.Code).To(Equal("backend_overloaded"))
+	})
+})
+
 var _ = Describe("Internal", func() {
 	It("returns 500 with type server_error", func() {
 		e := Internal("unexpected failure")

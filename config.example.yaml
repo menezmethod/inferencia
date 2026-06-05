@@ -21,7 +21,8 @@ backends:
   - name: "ollama"
     type: "ollama"
     url: "http://localhost:11434"
-    timeout: 60s
+    health_timeout: 5s    # health probes and GET /v1/models
+    timeout: 300s         # chat/embeddings; streaming uses request context (no client timeout)
 
 # TTS backends (optional). Each is an HTTP server exposing OpenAI-compatible
 # /v1/audio/speech and /v1/models endpoints.
@@ -44,7 +45,7 @@ log:
 
 # Watchdog: background health-check loop for all backends.
 # Pings /health every interval. After fail_threshold consecutive failures
-# a backend is marked DEGRADED and removed from auto-rotation.
+# a backend is marked DEGRADED and skipped for new inference requests.
 watchdog:
   interval: 30s
   fail_threshold: 3

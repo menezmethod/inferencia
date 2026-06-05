@@ -17,19 +17,19 @@ import (
 // is a thin proxy: it forwards requests and passes responses through
 // with minimal transformation.
 type MLX struct {
-	name    string
-	baseURL string
-	client  *http.Client
+	name            string
+	baseURL         string
+	healthClient    *http.Client
+	inferenceClient *http.Client
 }
 
 // NewMLX creates an MLX backend adapter.
-func NewMLX(name, baseURL string, timeout time.Duration) *MLX {
+func NewMLX(name, baseURL string, healthTimeout, inferenceTimeout time.Duration) *MLX {
 	return &MLX{
-		name:    name,
-		baseURL: strings.TrimRight(baseURL, "/"),
-		client: &http.Client{
-			Timeout: timeout,
-		},
+		name:            name,
+		baseURL:         strings.TrimRight(baseURL, "/"),
+		healthClient:    newHTTPClient(healthTimeout),
+		inferenceClient: newHTTPClient(inferenceTimeout),
 	}
 }
 
@@ -43,7 +43,7 @@ func (m *MLX) Health(ctx context.Context) error {
 		return fmt.Errorf("create health request: %w", err)
 	}
 
-	resp, err := m.client.Do(req)
+	resp, err := m.healthClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("mlx health check: %w", err)
 	}
@@ -58,7 +58,6 @@ func (m *MLX) Health(ctx context.Context) error {
 
 // ChatCompletion forwards a non-streaming chat completion request to MLX.
 func (m *MLX) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
-	// Copy to avoid mutating the caller's request.
 	local := req
 	local.Stream = false
 
@@ -73,7 +72,7 @@ func (m *MLX) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatRespons
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := m.client.Do(httpReq)
+	resp, err := m.inferenceClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("mlx chat completion: %w", err)
 	}
@@ -92,11 +91,7 @@ func (m *MLX) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatRespons
 }
 
 // ChatCompletionStream forwards a streaming chat completion request to MLX.
-// It reads SSE events from the MLX response and passes each data line to the
-// send function. The raw JSON bytes are passed through without re-encoding,
-// preserving the backend's response format.
 func (m *MLX) ChatCompletionStream(ctx context.Context, req ChatRequest, send StreamFunc) error {
-	// Copy to avoid mutating the caller's request.
 	local := req
 	local.Stream = true
 
@@ -105,7 +100,6 @@ func (m *MLX) ChatCompletionStream(ctx context.Context, req ChatRequest, send St
 		return fmt.Errorf("marshal chat request: %w", err)
 	}
 
-	// Use a client without timeout for streaming — context handles cancellation.
 	streamClient := &http.Client{}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, m.baseURL+"/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
@@ -124,21 +118,17 @@ func (m *MLX) ChatCompletionStream(ctx context.Context, req ChatRequest, send St
 		return fmt.Errorf("mlx stream: status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	// Read SSE events line by line.
 	scanner := bufio.NewScanner(resp.Body)
-	// Increase scanner buffer from default 64KB to 1MB for large SSE payloads.
 	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// SSE format: "data: {...}" or "data: [DONE]"
 		if !strings.HasPrefix(line, "data: ") {
 			continue
 		}
 
 		data := strings.TrimPrefix(line, "data: ")
 		if data == "[DONE]" {
-			// Send the [DONE] sentinel so the handler can forward it.
 			if err := send([]byte(data)); err != nil {
 				return err
 			}
@@ -160,7 +150,7 @@ func (m *MLX) ListModels(ctx context.Context) (*ModelsResponse, error) {
 		return nil, fmt.Errorf("create models request: %w", err)
 	}
 
-	resp, err := m.client.Do(req)
+	resp, err := m.healthClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("mlx list models: %w", err)
 	}
@@ -191,7 +181,7 @@ func (m *MLX) CreateEmbedding(ctx context.Context, req EmbedRequest) (*EmbedResp
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := m.client.Do(httpReq)
+	resp, err := m.inferenceClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("mlx create embedding: %w", err)
 	}

@@ -36,7 +36,7 @@ var _ = Describe("Watchdog", func() {
 			}))
 			defer srv.Close()
 
-			reg.Register(backend.NewOllama("test-ollama", srv.URL, 5*time.Second))
+			reg.Register(backend.NewOllama("test-ollama", srv.URL, 5*time.Second, 30*time.Second))
 
 			wd := watchdog.New(watchdog.Config{
 				Interval:       50 * time.Millisecond,
@@ -59,7 +59,7 @@ var _ = Describe("Watchdog", func() {
 			}))
 			defer srv.Close()
 
-			reg.Register(backend.NewOllama("bad-backend", srv.URL, 5*time.Second))
+			reg.Register(backend.NewOllama("bad-backend", srv.URL, 5*time.Second, 30*time.Second))
 
 			wd := watchdog.New(watchdog.Config{
 				Interval:       25 * time.Millisecond,
@@ -88,7 +88,7 @@ var _ = Describe("Watchdog", func() {
 			}))
 			defer srv.Close()
 
-			reg.Register(backend.NewOllama("flaky", srv.URL, 5*time.Second))
+			reg.Register(backend.NewOllama("flaky", srv.URL, 5*time.Second, 30*time.Second))
 
 			wd := watchdog.New(watchdog.Config{
 				Interval:       25 * time.Millisecond,

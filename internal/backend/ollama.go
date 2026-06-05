@@ -13,32 +13,36 @@ import (
 )
 
 // Ollama implements the Backend interface for Ollama servers.
-// This adapter uses Ollama's OpenAI-compatible /v1 endpoints.
+// This adapter uses Ollama's OpenAI-compatible /v1 endpoints for inference
+// and the native /api/tags endpoint for lightweight health checks.
 type Ollama struct {
-	name    string
-	baseURL string
-	client  *http.Client
+	name            string
+	baseURL         string
+	healthClient    *http.Client
+	inferenceClient *http.Client
 }
 
 // NewOllama creates an Ollama backend adapter.
-func NewOllama(name, baseURL string, timeout time.Duration) *Ollama {
+// healthTimeout applies to health probes and model listing; inferenceTimeout
+// applies to chat and embeddings (0 disables the client timeout for long runs).
+func NewOllama(name, baseURL string, healthTimeout, inferenceTimeout time.Duration) *Ollama {
 	return &Ollama{
-		name:    name,
-		baseURL: strings.TrimRight(baseURL, "/"),
-		client: &http.Client{
-			Timeout: timeout,
-		},
+		name:            name,
+		baseURL:         strings.TrimRight(baseURL, "/"),
+		healthClient:    newHTTPClient(healthTimeout),
+		inferenceClient: newHTTPClient(inferenceTimeout),
 	}
 }
 
 func (o *Ollama) Name() string { return o.name }
+
 func (o *Ollama) Health(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.baseURL+"/v1/models", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, o.baseURL+"/api/tags", nil)
 	if err != nil {
 		return fmt.Errorf("create health request: %w", err)
 	}
 
-	resp, err := o.client.Do(req)
+	resp, err := o.healthClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("ollama health check: %w", err)
 	}
@@ -52,7 +56,6 @@ func (o *Ollama) Health(ctx context.Context) error {
 }
 
 func (o *Ollama) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
-	// Copy to avoid mutating the caller's request.
 	local := req
 	local.Stream = false
 
@@ -67,7 +70,7 @@ func (o *Ollama) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResp
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := o.client.Do(httpReq)
+	resp, err := o.inferenceClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("ollama chat completion: %w", err)
 	}
@@ -86,7 +89,6 @@ func (o *Ollama) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResp
 }
 
 func (o *Ollama) ChatCompletionStream(ctx context.Context, req ChatRequest, send StreamFunc) error {
-	// Copy to avoid mutating the caller's request.
 	local := req
 	local.Stream = true
 
@@ -114,7 +116,6 @@ func (o *Ollama) ChatCompletionStream(ctx context.Context, req ChatRequest, send
 	}
 
 	scanner := bufio.NewScanner(resp.Body)
-	// Increase scanner buffer from default 64KB to 1MB for large SSE payloads.
 	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -144,7 +145,7 @@ func (o *Ollama) ListModels(ctx context.Context) (*ModelsResponse, error) {
 		return nil, fmt.Errorf("create models request: %w", err)
 	}
 
-	resp, err := o.client.Do(req)
+	resp, err := o.healthClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("ollama list models: %w", err)
 	}
@@ -174,7 +175,7 @@ func (o *Ollama) CreateEmbedding(ctx context.Context, req EmbedRequest) (*EmbedR
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := o.client.Do(httpReq)
+	resp, err := o.inferenceClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("ollama create embedding: %w", err)
 	}
