@@ -30,7 +30,7 @@ trap cleanup EXIT
 
 echo "--- Wait for health ---"
 for i in {1..30}; do
-  if curl -sf "$BASE_URL/health" >/dev/null; then
+  if curl -s "$BASE_URL/health" >/dev/null; then
     break
   fi
   if [[ $i -eq 30 ]]; then
