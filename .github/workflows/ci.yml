@@ -88,7 +88,7 @@ jobs:
             -p 8080:8080 \
             inferencia:ci
           sleep 3
-          curl -sf http://localhost:8080/health
+          curl -s http://localhost:8080/health > /dev/null
           curl -sf http://localhost:8080/version
           curl -sf http://localhost:8080/metrics | head -5
           curl -sf -o /dev/null -w "%{http_code}" http://localhost:8080/docs | grep -q 200
