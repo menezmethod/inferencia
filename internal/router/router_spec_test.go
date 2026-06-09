@@ -155,7 +155,61 @@ var _ = Describe("SelectBackend", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	Describe("SelectHealthyBackend", func() {
+		It("returns error when the requested model backend is degraded", func() {
+			reg := NewRegistry()
+			reg.Register(BackendInfo{
+				Name:         "kokoro",
+				TTSBackend:   &mockTTSBackend{name: "kokoro"},
+				Capabilities: []Capability{CapTTS},
+				Models:       []ModelInfo{{ID: "kokoro", Kind: CapTTS}},
+			})
+			reg.Register(BackendInfo{
+				Name:         "chatterbox",
+				TTSBackend:   &mockTTSBackend{name: "chatterbox"},
+				Capabilities: []Capability{CapTTS},
+				Models:       []ModelInfo{{ID: "chatterbox", Kind: CapTTS}},
+			})
+
+			hc := healthStub{healthy: map[string]bool{"kokoro": false, "chatterbox": true}}
+			_, err := reg.SelectHealthyBackend(CapTTS, "kokoro", hc)
+			Expect(err).To(MatchError(backend.ErrNoHealthyBackend))
+		})
+
+		It("selects the matching backend when it is healthy", func() {
+			reg := NewRegistry()
+			reg.Register(BackendInfo{
+				Name:         "kokoro",
+				TTSBackend:   &mockTTSBackend{name: "kokoro"},
+				Capabilities: []Capability{CapTTS},
+				Models:       []ModelInfo{{ID: "kokoro", Kind: CapTTS}},
+			})
+			reg.Register(BackendInfo{
+				Name:         "chatterbox",
+				TTSBackend:   &mockTTSBackend{name: "chatterbox"},
+				Capabilities: []Capability{CapTTS},
+				Models:       []ModelInfo{{ID: "chatterbox", Kind: CapTTS}},
+			})
+
+			hc := healthStub{healthy: map[string]bool{"kokoro": true, "chatterbox": true}}
+			info, err := reg.SelectHealthyBackend(CapTTS, "kokoro", hc)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Name).To(Equal("kokoro"))
+		})
+	})
 })
+
+type healthStub struct {
+	healthy map[string]bool
+}
+
+func (h healthStub) IsHealthy(name string) bool {
+	if h.healthy == nil {
+		return true
+	}
+	return h.healthy[name]
+}
 
 // mockTTSBackend is a minimal TTSBackend for testing.
 type mockTTSBackend struct {
