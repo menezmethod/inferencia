@@ -53,6 +53,12 @@ func (r *Registry) selectBackend(kind Capability, model string, hc backend.Healt
 		return scoredCandidates[i].score > scoredCandidates[j].score
 	})
 
+	// Require at least a prefix model match (score >= 50). A capability-only
+	// match (score 10) means no healthy backend advertises the requested model.
+	if scoredCandidates[0].score < 50 {
+		return BackendInfo{}, backend.ErrNoHealthyBackend
+	}
+
 	return scoredCandidates[0].info, nil
 }
 
