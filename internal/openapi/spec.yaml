@@ -604,6 +604,17 @@ components:
           minimum: -2
           maximum: 2
           description: Penalizes tokens based on their frequency in the text so far.
+        logprobs:
+          type: boolean
+          description: Whether to return log probabilities of the output tokens.
+        top_logprobs:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: Number of most likely tokens to return at each position (requires logprobs true).
+        seed:
+          type: integer
+          description: If specified, the system attempts to sample deterministically.
         user:
           type: string
           description: Unique identifier for the end-user (for abuse tracking).

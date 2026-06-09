@@ -200,6 +200,9 @@ type ChatRequest struct {
 	Stream              bool            `json:"stream"`
 	PresencePenalty     *float64        `json:"presence_penalty,omitempty"`
 	FrequencyPenalty    *float64        `json:"frequency_penalty,omitempty"`
+	Logprobs            *bool           `json:"logprobs,omitempty"`
+	TopLogprobs         *int            `json:"top_logprobs,omitempty"`
+	Seed                *int            `json:"seed,omitempty"`
 	User                string          `json:"user,omitempty"`
 
 	// Tool calling support (OpenAI function calling protocol).

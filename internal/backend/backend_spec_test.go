@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,6 +27,32 @@ func (m minimalBackend) ListModels(context.Context) (*ModelsResponse, error) {
 func (m minimalBackend) CreateEmbedding(context.Context, EmbedRequest) (*EmbedResponse, error) {
 	return nil, nil
 }
+
+var _ = Describe("ChatRequest", func() {
+	Describe("JSON marshaling", func() {
+		It("includes logprobs, top_logprobs, and seed when set", func() {
+			logprobs := true
+			topLogprobs := 5
+			seed := 42
+			req := ChatRequest{
+				Model:       "test",
+				Messages:    []Message{{Role: "user", Content: json.RawMessage(`"hi"`)}},
+				Logprobs:    &logprobs,
+				TopLogprobs: &topLogprobs,
+				Seed:        &seed,
+			}
+
+			body, err := json.Marshal(req)
+			Expect(err).NotTo(HaveOccurred())
+
+			var decoded map[string]any
+			Expect(json.Unmarshal(body, &decoded)).NotTo(HaveOccurred())
+			Expect(decoded["logprobs"]).To(BeTrue())
+			Expect(decoded["top_logprobs"]).To(BeEquivalentTo(5))
+			Expect(decoded["seed"]).To(BeEquivalentTo(42))
+		})
+	})
+})
 
 var _ = Describe("Registry", func() {
 	Describe("NewRegistry", func() {

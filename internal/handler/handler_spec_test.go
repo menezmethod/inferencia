@@ -367,6 +367,35 @@ var _ = Describe("ChatCompletions", func() {
 		})
 	})
 
+	When("logprobs and seed are provided", func() {
+		It("passes them through to the backend", func() {
+			finish := "stop"
+			mock := &mockBackend{
+				chatResp: &backend.ChatResponse{
+					ID:      "chatcmpl-test",
+					Object:  "chat.completion",
+					Model:   "test",
+					Choices: []backend.Choice{{Index: 0, Message: &backend.Message{Role: "assistant", Content: json.RawMessage(`"Hello!"`)}, FinishReason: &finish}},
+				},
+			}
+			reg := newTestRegistry(mock)
+			h := ChatCompletions(reg, nil, discardLogger())
+			body := `{"model":"test","messages":[{"role":"user","content":"hi"}],"logprobs":true,"top_logprobs":5,"seed":42}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(mock.lastChatReq.Logprobs).NotTo(BeNil())
+			Expect(*mock.lastChatReq.Logprobs).To(BeTrue())
+			Expect(mock.lastChatReq.TopLogprobs).NotTo(BeNil())
+			Expect(*mock.lastChatReq.TopLogprobs).To(Equal(5))
+			Expect(mock.lastChatReq.Seed).NotTo(BeNil())
+			Expect(*mock.lastChatReq.Seed).To(Equal(42))
+		})
+	})
+
 	When("body is invalid JSON", func() {
 		It("returns 400", func() {
 			reg := newTestRegistry(&mockBackend{})
