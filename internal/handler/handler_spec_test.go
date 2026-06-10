@@ -597,6 +597,40 @@ var _ = Describe("Embeddings", func() {
 	})
 })
 
+var _ = Describe("Audio", func() {
+	When("speed is omitted", func() {
+		It("defaults to 1.0 before synthesis", func() {
+			ttsMock := &mockTTSBackend{name: "kokoro"}
+			ttsReg := newTestTTSRegistry(ttsMock)
+			h := Audio(ttsReg, nil, discardLogger())
+			body := `{"input":"hello","model":"kokoro"}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(ttsMock.lastTTSReq.Speed).To(Equal(1.0))
+		})
+	})
+
+	When("speed is below the minimum", func() {
+		It("clamps to 0.25", func() {
+			ttsMock := &mockTTSBackend{name: "kokoro"}
+			ttsReg := newTestTTSRegistry(ttsMock)
+			h := Audio(ttsReg, nil, discardLogger())
+			body := `{"input":"hello","model":"kokoro","speed":0.1}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/audio/speech", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(ttsMock.lastTTSReq.Speed).To(Equal(0.25))
+		})
+	})
+})
+
 var _ = Describe("VersionInfo", func() {
 	It("returns 200 with version in JSON", func() {
 		h := VersionInfo()

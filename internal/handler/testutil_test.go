@@ -70,17 +70,19 @@ func newTestRegistry(b backend.Backend) *backend.Registry {
 
 // mockTTSBackend implements backend.TTSBackend for testing.
 type mockTTSBackend struct {
-	name      string
-	healthErr error
-	voices    []backend.Voice
-	voicesErr error
+	name       string
+	healthErr  error
+	voices     []backend.Voice
+	voicesErr  error
+	lastTTSReq backend.TTSRequest
 }
 
 func (m *mockTTSBackend) Name() string { return m.name }
 
 func (m *mockTTSBackend) Health(context.Context) error { return m.healthErr }
 
-func (m *mockTTSBackend) Synthesize(_ context.Context, _ backend.TTSRequest) (*backend.TTSResponse, error) {
+func (m *mockTTSBackend) Synthesize(_ context.Context, req backend.TTSRequest) (*backend.TTSResponse, error) {
+	m.lastTTSReq = req
 	return &backend.TTSResponse{Audio: []byte("mock-audio"), Format: "audio/wav"}, nil
 }
 
