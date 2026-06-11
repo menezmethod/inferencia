@@ -18,8 +18,10 @@ services:
       INFERENCIA_LOG_FORMAT: ${INFERENCIA_LOG_FORMAT:-json}
       INFERENCIA_RATELIMIT_RPS: ${INFERENCIA_RATELIMIT_RPS:-10}
       INFERENCIA_RATELIMIT_BURST: ${INFERENCIA_RATELIMIT_BURST:-20}
+    ports:
+      - "8080:8080"
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/health"]
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/health/status"]
       interval: 30s
       timeout: 3s
       start_period: 5s
