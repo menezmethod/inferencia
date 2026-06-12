@@ -1,4 +1,4 @@
-.PHONY: build run test test-v test-coverage integration lint clean fmt vet openapi smoke-prod check-sensitive
+.PHONY: build run test test-v test-coverage integration lint clean fmt vet openapi smoke-prod check-sensitive check-compose
 
 BINARY := inferencia
 PKG    := ./...
@@ -52,3 +52,7 @@ smoke-prod:
 # Blocklist check: set SENSITIVE_BLOCKLIST (newline-separated patterns) to enable; when unset, passes. CI runs this + gitleaks.
 check-sensitive:
 	@./scripts/check-sensitive-data.sh
+
+# Coolify compose policy: expose only, no host 8080 bind. CI runs this before compose smoke.
+check-compose:
+	@./scripts/check-docker-compose.sh

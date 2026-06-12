@@ -49,7 +49,7 @@ EXPOSE 8080
 
 # Orchestrators can use this; Coolify also supports HTTP health checks
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -q -O- http://127.0.0.1:8080/health/status | grep -q "healthy" || exit 1
+    CMD wget -q -O- http://127.0.0.1:8080/version >/dev/null || exit 1
 
 ENTRYPOINT ["/app/inferencia"]
 # No config file: app uses defaults + env. Set INFERENCIA_HOST=0.0.0.0 and INFERENCIA_PORT=8080.

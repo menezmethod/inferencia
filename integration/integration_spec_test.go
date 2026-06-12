@@ -37,7 +37,7 @@ var _ = Describe("Integration", func() {
 		It("GET /health returns detailed status (200 when healthy, 503 when degraded)", func() {
 			resp, err := http.Get(baseURL + "/health")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Or(Equal(http.StatusOK), Equal(http.StatusServiceUnavailable)))
 			var body map[string]interface{}
 			Expect(json.NewDecoder(resp.Body).Decode(&body)).NotTo(HaveOccurred())
@@ -51,7 +51,7 @@ var _ = Describe("Integration", func() {
 		It("GET /version returns 200 and version in JSON", func() {
 			resp, err := http.Get(baseURL + "/version")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Header.Get("Content-Type")).To(ContainSubstring("application/json"))
 			var body map[string]string
@@ -62,7 +62,7 @@ var _ = Describe("Integration", func() {
 		It("GET /metrics returns 200 and Prometheus output", func() {
 			resp, err := http.Get(baseURL + "/metrics")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			body, _ := io.ReadAll(resp.Body)
 			Expect(string(body)).To(ContainSubstring("inferencia"))
@@ -71,7 +71,7 @@ var _ = Describe("Integration", func() {
 		It("GET /docs returns 200 and HTML with swagger-ui", func() {
 			resp, err := http.Get(baseURL + "/docs")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Header.Get("Content-Type")).To(ContainSubstring("text/html"))
 			body, _ := io.ReadAll(resp.Body)
@@ -81,7 +81,7 @@ var _ = Describe("Integration", func() {
 		It("GET /openapi.yaml returns 200 and YAML", func() {
 			resp, err := http.Get(baseURL + "/openapi.yaml")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp.Header.Get("Content-Type")).To(Equal("application/x-yaml"))
 			body, _ := io.ReadAll(resp.Body)
@@ -93,7 +93,7 @@ var _ = Describe("Integration", func() {
 		It("GET /v1/models without Authorization returns 401", func() {
 			resp, err := http.Get(baseURL + "/v1/models")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 
@@ -102,7 +102,7 @@ var _ = Describe("Integration", func() {
 			req.Header.Set("Authorization", "Bearer sk-wrong-key")
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 
@@ -111,7 +111,7 @@ var _ = Describe("Integration", func() {
 			req.Header.Set("Authorization", "Bearer sk-integration-test")
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(BeElementOf(http.StatusOK, http.StatusServiceUnavailable))
 		})
 	})
@@ -121,7 +121,7 @@ var _ = Describe("Integration", func() {
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
 			resp, err := http.Post(baseURL+"/v1/chat/completions", "application/json", strings.NewReader(body))
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 
@@ -131,7 +131,7 @@ var _ = Describe("Integration", func() {
 			req.Header.Set("Authorization", "Bearer sk-integration-test")
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 	})
@@ -141,7 +141,7 @@ var _ = Describe("Integration", func() {
 			body := `{"model":"test","input":"hello"}`
 			resp, err := http.Post(baseURL+"/v1/embeddings", "application/json", strings.NewReader(body))
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		})
 
@@ -151,7 +151,7 @@ var _ = Describe("Integration", func() {
 			req.Header.Set("Authorization", "Bearer sk-integration-test")
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 	})
@@ -160,7 +160,7 @@ var _ = Describe("Integration", func() {
 		It("returns 200 when backends are healthy or 503 when none are", func() {
 			resp, err := http.Get(baseURL + "/health/ready")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(BeElementOf(http.StatusOK, http.StatusServiceUnavailable))
 		})
 	})
@@ -169,7 +169,7 @@ var _ = Describe("Integration", func() {
 		It("returns per-service breakdown with correct structure", func() {
 			resp, err := http.Get(baseURL + "/health/status")
 			Expect(err).NotTo(HaveOccurred())
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			Expect(resp.StatusCode).To(BeElementOf(http.StatusOK, http.StatusServiceUnavailable))
 			var body map[string]interface{}
 			Expect(json.NewDecoder(resp.Body).Decode(&body)).NotTo(HaveOccurred())
