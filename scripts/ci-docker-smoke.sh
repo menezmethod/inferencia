@@ -11,7 +11,8 @@ echo "--- Docker smoke: $BASE ---"
 curl -sf "$BASE/version" >/dev/null
 echo "OK   GET /version"
 
-curl -sf "$BASE/metrics" | head -5 >/dev/null
+metrics=$(curl -sf "$BASE/metrics")
+test -n "$metrics" || { echo "FAIL GET /metrics: empty response"; exit 1; }
 echo "OK   GET /metrics"
 
 status=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/docs")
