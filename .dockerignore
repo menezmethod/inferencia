@@ -18,6 +18,9 @@ keys.example.txt
 inferencia
 /bin/
 
+# TTS server venvs (not used by inferencia image; keeps Docker context small in CI)
+deploy/tts-servers/
+
 # Docs and dev (optional: include if you want)
 .cursor
 *.md
