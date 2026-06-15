@@ -46,7 +46,7 @@ func (o *Ollama) Health(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("ollama health check: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
@@ -74,7 +74,7 @@ func (o *Ollama) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResp
 	if err != nil {
 		return nil, fmt.Errorf("ollama chat completion: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -108,7 +108,7 @@ func (o *Ollama) ChatCompletionStream(ctx context.Context, req ChatRequest, send
 	if err != nil {
 		return fmt.Errorf("ollama stream request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -149,7 +149,7 @@ func (o *Ollama) ListModels(ctx context.Context) (*ModelsResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ollama list models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -179,7 +179,7 @@ func (o *Ollama) CreateEmbedding(ctx context.Context, req EmbedRequest) (*EmbedR
 	if err != nil {
 		return nil, fmt.Errorf("ollama create embedding: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)

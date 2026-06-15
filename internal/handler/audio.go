@@ -70,6 +70,10 @@ func Audio(rtr *router.Registry, hc backend.HealthChecker, logger *slog.Logger) 
 			}
 		}
 
+		// Default omitted speed (JSON unmarshals to 0) before clamping.
+		if req.Speed <= 0 {
+			req.Speed = 1.0
+		}
 		// Clamp speed to OpenAI-compatible range [0.25, 4.0].
 		if req.Speed < 0.25 {
 			req.Speed = 0.25
