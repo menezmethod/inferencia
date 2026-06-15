@@ -1,4 +1,4 @@
-# Run locally: make lint. Not run in CI (golangci-lint-action binary targets Go 1.24; this repo uses Go 1.26).
+# Run locally: make lint. CI installs golangci-lint v2.12.2 via go install (Go 1.26).
 version: "2"
 run:
   timeout: 5m
