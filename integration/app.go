@@ -110,7 +110,7 @@ func waitForHealth(ctx context.Context, baseURL string) error {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+healthPath, nil)
 		resp, err := client.Do(req)
 		if err == nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			// Server is alive — any response means the app started.
 			// Backends may report unhealthy in CI (no Ollama), that's fine.
 			return nil
@@ -146,6 +146,6 @@ func IsRunning(baseURL string) bool {
 	if err != nil {
 		return false
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return resp.StatusCode == http.StatusOK
 }

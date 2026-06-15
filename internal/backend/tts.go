@@ -44,7 +44,7 @@ func (t *TTSHTTP) Health(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("tts health check: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)
@@ -85,7 +85,7 @@ func (t *TTSHTTP) Synthesize(ctx context.Context, req TTSRequest) (*TTSResponse,
 	if err != nil {
 		return nil, fmt.Errorf("tts synthesize: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
@@ -121,7 +121,7 @@ func (t *TTSHTTP) Voices(ctx context.Context) ([]Voice, error) {
 	if err != nil {
 		return nil, fmt.Errorf("tts list models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
