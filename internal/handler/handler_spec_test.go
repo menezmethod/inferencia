@@ -32,7 +32,7 @@ var _ = Describe("Ready", func() {
 		It("returns 200", func() {
 			mock := &mockBackend{healthErr: nil}
 			reg := newTestRegistry(mock)
-			h := Ready(reg)
+			h := Ready(reg, nil, nil)
 			req := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -44,21 +44,78 @@ var _ = Describe("Ready", func() {
 		It("returns 503", func() {
 			mock := &mockBackend{healthErr: errors.New("connection refused")}
 			reg := newTestRegistry(mock)
-			h := Ready(reg)
+			h := Ready(reg, nil, nil)
 			req := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
 			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		})
 	})
+
+	When("the watchdog marks the backend degraded", func() {
+		It("returns 503 without calling live Health()", func() {
+			mock := &mockBackend{healthErr: errors.New("live probe should not run")}
+			reg := newTestRegistry(mock)
+			hc := stubHealthChecker{healthy: map[string]bool{"mock": false}}
+			h := Ready(reg, nil, hc)
+			req := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp map[string]string
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp["error"]).To(ContainSubstring("degraded"))
+			Expect(resp["error"]).NotTo(ContainSubstring("live probe"))
+		})
+	})
+
+	When("a TTS backend is degraded by the watchdog", func() {
+		It("returns 503", func() {
+			reg := newTestRegistry(&mockBackend{})
+			ttsMock := &mockTTSBackend{name: "kokoro"}
+			ttsReg := newTestTTSRegistry(ttsMock)
+			hc := stubHealthChecker{healthy: map[string]bool{"mock": true, "kokoro": false}}
+			h := Ready(reg, ttsReg, hc)
+			req := httptest.NewRequest(http.MethodGet, "/health/ready", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp map[string]string
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp["backend"]).To(Equal("kokoro"))
+		})
+	})
 })
 
 var _ = Describe("HealthStatus", func() {
+	When("the watchdog marks a backend degraded", func() {
+		It("returns 503 with watchdog error and skips live probe", func() {
+			mock := &mockBackend{healthErr: errors.New("live probe should not run")}
+			reg := newTestRegistry(mock)
+			hc := stubHealthChecker{healthy: map[string]bool{"mock": false}}
+			h := HealthStatus(reg, nil, hc)
+
+			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+			var resp HealthStatusResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			Expect(resp.Status).To(Equal("degraded"))
+			Expect(resp.Services["mock"].Status).To(Equal("unhealthy"))
+			Expect(resp.Services["mock"].Error).To(ContainSubstring("degraded"))
+			Expect(resp.Services["mock"].Error).NotTo(ContainSubstring("live probe"))
+		})
+	})
+
 	When("all backends are healthy", func() {
 		It("returns 200 with per-service breakdown", func() {
 			mock := &mockBackend{healthErr: nil}
 			reg := newTestRegistry(mock)
-			h := HealthStatus(reg, nil)
+			h := HealthStatus(reg, nil, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 			rec := httptest.NewRecorder()
@@ -78,7 +135,7 @@ var _ = Describe("HealthStatus", func() {
 		It("returns 503 with error detail", func() {
 			mock := &mockBackend{healthErr: errors.New("connection refused")}
 			reg := newTestRegistry(mock)
-			h := HealthStatus(reg, nil)
+			h := HealthStatus(reg, nil, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 			rec := httptest.NewRecorder()
@@ -102,7 +159,7 @@ var _ = Describe("HealthStatus", func() {
 				healthErr: errors.New("tts timeout"),
 			}
 			ttsReg := newTestTTSRegistry(ttsMock)
-			h := HealthStatus(reg, ttsReg)
+			h := HealthStatus(reg, ttsReg, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 			rec := httptest.NewRecorder()
@@ -127,7 +184,7 @@ var _ = Describe("HealthStatus", func() {
 				healthErr: errors.New("kokoro down"),
 			}
 			ttsReg := newTestTTSRegistry(ttsMock)
-			h := HealthStatus(reg, ttsReg)
+			h := HealthStatus(reg, ttsReg, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 			rec := httptest.NewRecorder()
@@ -145,7 +202,7 @@ var _ = Describe("HealthStatus", func() {
 	When("no backends are registered at all", func() {
 		It("returns 503 with _none service", func() {
 			reg := backend.NewRegistry()
-			h := HealthStatus(reg, nil)
+			h := HealthStatus(reg, nil, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 			rec := httptest.NewRecorder()
@@ -172,7 +229,7 @@ var _ = Describe("HealthStatus", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := HealthStatus(reg, nil)
+			h := HealthStatus(reg, nil, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 			rec := httptest.NewRecorder()
@@ -203,7 +260,7 @@ var _ = Describe("HealthStatus", func() {
 				},
 			}
 			ttsReg := newTestTTSRegistry(ttsMock)
-			h := HealthStatus(reg, ttsReg)
+			h := HealthStatus(reg, ttsReg, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 			rec := httptest.NewRecorder()
@@ -236,7 +293,7 @@ var _ = Describe("HealthStatus", func() {
 				healthErr: errors.New("connection timeout"),
 			}
 			ttsReg := newTestTTSRegistry(ttsMock)
-			h := HealthStatus(reg, ttsReg)
+			h := HealthStatus(reg, ttsReg, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/health/status", nil)
 			rec := httptest.NewRecorder()

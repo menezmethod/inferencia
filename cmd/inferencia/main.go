@@ -101,7 +101,7 @@ func main() {
 	}
 
 	// Register consolidated health status endpoint.
-	server.RegisterHealthStatusRoute(srv, reg, ttsRouter)
+	server.RegisterHealthStatusRoute(srv, reg, ttsRouter, wd)
 
 	wd.Start()
 

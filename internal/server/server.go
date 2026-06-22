@@ -38,7 +38,6 @@ func New(cfg config.Config, reg *backend.Registry, ks *auth.KeyStore, hc backend
 	}
 
 	// Health, docs, version, and metrics — no auth required.
-	mux.HandleFunc("GET /health/ready", handler.Ready(reg))
 	mux.HandleFunc("GET /version", handler.VersionInfo())
 	mux.HandleFunc("GET /openapi.yaml", handler.OpenAPI())
 	mux.HandleFunc("GET /docs", handler.SwaggerUI())
@@ -96,16 +95,17 @@ func RegisterTTSRoute(mux *http.ServeMux, rtr *router.Registry, ks *auth.KeyStor
 	mux.Handle("POST /v1/audio/speech", protected(handler.Audio(rtr, nil, logger)))
 }
 
-// RegisterHealthStatusRoute adds the consolidated /health and /health/status endpoints.
-// It probes all chat/embed backends and any configured TTS backends,
-// returning a per-service breakdown. No auth required.
-func RegisterHealthStatusRoute(srv *http.Server, reg *backend.Registry, ttsReg *router.Registry) {
+// RegisterHealthStatusRoute adds the consolidated /health, /health/status, and
+// /health/ready endpoints. It probes all chat/embed backends and any configured
+// TTS backends, combining watchdog state with live Health() probes.
+func RegisterHealthStatusRoute(srv *http.Server, reg *backend.Registry, ttsReg *router.Registry, hc backend.HealthChecker) {
 	if srv.Handler == nil {
 		return
 	}
 	if mux, ok := srv.Handler.(*http.ServeMux); ok {
-		mux.HandleFunc("GET /health", handler.HealthStatus(reg, ttsReg))
-		mux.HandleFunc("GET /health/status", handler.HealthStatus(reg, ttsReg))
+		mux.HandleFunc("GET /health", handler.HealthStatus(reg, ttsReg, hc))
+		mux.HandleFunc("GET /health/status", handler.HealthStatus(reg, ttsReg, hc))
+		mux.HandleFunc("GET /health/ready", handler.Ready(reg, ttsReg, hc))
 	}
 }
 

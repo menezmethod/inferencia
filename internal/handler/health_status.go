@@ -44,12 +44,13 @@ type HealthStatusResponse struct {
 
 // HealthStatus returns a consolidated health check handler that probes all
 // registered backends (chat, embed, TTS) and reports their health, available
-// models, and aggregate summary.
+// models, and aggregate summary. When hc is provided, backends marked degraded
+// by the watchdog are reported unhealthy without a live probe.
 //
 //	GET /health/status
 //
 // Returns 200 if all services are healthy, 503 if any service is down.
-func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFunc {
+func HealthStatus(reg *backend.Registry, ttsReg *router.Registry, hc backend.HealthChecker) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
@@ -63,7 +64,7 @@ func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFu
 		for _, b := range reg.All() {
 			s := ServiceStatus{Status: "healthy"}
 
-			if err := b.Health(r.Context()); err != nil {
+			if err := backend.CheckBackendHealth(r.Context(), hc, b.Name(), b.Health); err != nil {
 				s.Status = "unhealthy"
 				s.Error = err.Error()
 				overall = "degraded"
@@ -102,7 +103,7 @@ func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFu
 
 				s := ServiceStatus{Status: "healthy"}
 
-				if err := info.TTSBackend.Health(r.Context()); err != nil {
+				if err := backend.CheckBackendHealth(r.Context(), hc, info.Name, info.TTSBackend.Health); err != nil {
 					s.Status = "unhealthy"
 					s.Error = err.Error()
 					overall = "degraded"

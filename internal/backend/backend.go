@@ -140,6 +140,21 @@ func (r *Registry) PrimaryName() string {
 	return r.primary
 }
 
+// HealthyBackends returns backends that pass the health checker. A nil checker
+// returns all registered backends.
+func (r *Registry) HealthyBackends(hc HealthChecker) []Backend {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]Backend, 0, len(r.backends))
+	for name, b := range r.backends {
+		if hc == nil || hc.IsHealthy(name) {
+			result = append(result, b)
+		}
+	}
+	return result
+}
+
 // PrimaryHealthy returns the primary backend when healthy, otherwise the first
 // other healthy backend. When hc is nil, this behaves like Primary.
 func (r *Registry) PrimaryHealthy(hc HealthChecker) (Backend, error) {
