@@ -3,6 +3,8 @@ package router
 import (
 	"fmt"
 	"sync"
+
+	"github.com/menezmethod/inferencia/internal/backend"
 )
 
 // Registry manages backends with capability awareness.
@@ -12,12 +14,14 @@ type Registry struct {
 	mu       sync.RWMutex
 	backends map[string]BackendInfo
 	routes   []ModelRoute
+	lb       *backend.LoadBalancer
 }
 
 // NewRegistry creates an empty Registry.
 func NewRegistry() *Registry {
 	return &Registry{
 		backends: make(map[string]BackendInfo),
+		lb:       backend.NewLoadBalancer(),
 	}
 }
 

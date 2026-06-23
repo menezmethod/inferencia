@@ -41,6 +41,7 @@ func ChatCompletions(reg *backend.Registry, hc backend.HealthChecker, logger *sl
 			apierror.Write(w, backendSelectError(reg, err))
 			return
 		}
+		defer reg.ReleaseBackend(b.Name())
 
 		if req.Stream {
 			handleStream(w, r, b, req, logger)
