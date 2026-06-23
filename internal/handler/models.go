@@ -19,6 +19,7 @@ func Models(reg *backend.Registry, hc backend.HealthChecker, logger *slog.Logger
 			apierror.Write(w, backendSelectError(reg, err))
 			return
 		}
+		defer reg.ReleaseBackend(b.Name())
 
 		resp, err := b.ListModels(r.Context())
 		if err != nil {

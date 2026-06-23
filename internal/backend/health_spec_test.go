@@ -48,4 +48,21 @@ var _ = Describe("PrimaryHealthy", func() {
 		_, err := reg.PrimaryHealthy(hc)
 		Expect(err).To(MatchError(ErrNoHealthyBackend))
 	})
+
+	It("load-balances across multiple healthy backends", func() {
+		reg := NewRegistry()
+		reg.Register(&minimalBackend{name: "ollama"})
+		reg.Register(&minimalBackend{name: "mlx"})
+
+		b1, err := reg.PrimaryHealthy(nil)
+		Expect(err).NotTo(HaveOccurred())
+		// Keep b1 in-flight.
+
+		b2, err := reg.PrimaryHealthy(nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(b2.Name()).NotTo(Equal(b1.Name()))
+
+		reg.ReleaseBackend(b1.Name())
+		reg.ReleaseBackend(b2.Name())
+	})
 })

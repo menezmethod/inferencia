@@ -92,12 +92,14 @@ type Registry struct {
 	mu       sync.RWMutex
 	backends map[string]Backend
 	primary  string // default backend name
+	lb       *LoadBalancer
 }
 
 // NewRegistry creates an empty Registry.
 func NewRegistry() *Registry {
 	return &Registry{
 		backends: make(map[string]Backend),
+		lb:       NewLoadBalancer(),
 	}
 }
 
@@ -140,8 +142,8 @@ func (r *Registry) PrimaryName() string {
 	return r.primary
 }
 
-// PrimaryHealthy returns the primary backend when healthy, otherwise the first
-// other healthy backend. When hc is nil, this behaves like Primary.
+// PrimaryHealthy returns a healthy backend using least-connections load balancing
+// across all healthy backends. When hc is nil, all backends are considered healthy.
 func (r *Registry) PrimaryHealthy(hc HealthChecker) (Backend, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -150,10 +152,19 @@ func (r *Registry) PrimaryHealthy(hc HealthChecker) (Backend, error) {
 		return nil, ErrBackendNotFound
 	}
 
-	for _, name := range r.healthyOrderLocked(hc) {
-		return r.backends[name], nil
+	healthy := r.healthyOrderLocked(hc)
+	if len(healthy) == 0 {
+		return nil, ErrNoHealthyBackend
 	}
-	return nil, ErrNoHealthyBackend
+
+	name := r.lb.Select(healthy)
+	r.lb.Acquire(name)
+	return r.backends[name], nil
+}
+
+// ReleaseBackend decrements the in-flight counter for a backend after a request completes.
+func (r *Registry) ReleaseBackend(name string) {
+	r.lb.Release(name)
 }
 
 func (r *Registry) healthyOrderLocked(hc HealthChecker) []string {

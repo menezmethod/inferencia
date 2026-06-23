@@ -30,6 +30,7 @@ func Embeddings(reg *backend.Registry, hc backend.HealthChecker, logger *slog.Lo
 			apierror.Write(w, backendSelectError(reg, err))
 			return
 		}
+		defer reg.ReleaseBackend(b.Name())
 
 		resp, err := b.CreateEmbedding(r.Context(), req)
 		if err != nil {

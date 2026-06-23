@@ -156,6 +156,60 @@ var _ = Describe("SelectBackend", func() {
 		})
 	})
 
+	Describe("load balancing", func() {
+		It("distributes requests across backends with equal capability", func() {
+			reg := NewRegistry()
+			reg.Register(BackendInfo{
+				Name:         "tts-a",
+				TTSBackend:   &mockTTSBackend{name: "tts-a"},
+				Capabilities: []Capability{CapTTS},
+			})
+			reg.Register(BackendInfo{
+				Name:         "tts-b",
+				TTSBackend:   &mockTTSBackend{name: "tts-b"},
+				Capabilities: []Capability{CapTTS},
+			})
+
+			info1, err := reg.SelectBackend(CapTTS, "")
+			Expect(err).NotTo(HaveOccurred())
+			reg.ReleaseBackend(info1.Name)
+
+			info2, err := reg.SelectBackend(CapTTS, "")
+			Expect(err).NotTo(HaveOccurred())
+			reg.ReleaseBackend(info2.Name)
+
+			Expect(info1.Name).NotTo(Equal(info2.Name))
+		})
+
+		It("prefers the backend with fewer in-flight requests", func() {
+			reg := NewRegistry()
+			reg.Register(BackendInfo{
+				Name:         "kokoro-1",
+				TTSBackend:   &mockTTSBackend{name: "kokoro-1"},
+				Capabilities: []Capability{CapTTS},
+				Models:       []ModelInfo{{ID: "kokoro", Kind: CapTTS}},
+			})
+			reg.Register(BackendInfo{
+				Name:         "kokoro-2",
+				TTSBackend:   &mockTTSBackend{name: "kokoro-2"},
+				Capabilities: []Capability{CapTTS},
+				Models:       []ModelInfo{{ID: "kokoro", Kind: CapTTS}},
+			})
+
+			info1, err := reg.SelectBackend(CapTTS, "kokoro")
+			Expect(err).NotTo(HaveOccurred())
+			// Simulate an in-flight request on the first pick.
+			// Acquire already happened in SelectBackend; do not release info1.
+
+			info2, err := reg.SelectBackend(CapTTS, "kokoro")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info2.Name).NotTo(Equal(info1.Name))
+
+			reg.ReleaseBackend(info1.Name)
+			reg.ReleaseBackend(info2.Name)
+		})
+	})
+
 	Describe("SelectHealthyBackend", func() {
 		It("returns error when the requested model backend is degraded", func() {
 			reg := NewRegistry()

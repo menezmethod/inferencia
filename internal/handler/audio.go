@@ -56,6 +56,7 @@ func Audio(rtr *router.Registry, hc backend.HealthChecker, logger *slog.Logger) 
 			apierror.Write(w, apierror.BackendUnavailable(req.Model))
 			return
 		}
+		defer rtr.ReleaseBackend(info.Name)
 
 		// Apply voice default based on the selected backend.
 		// Each TTS backend has its own set of known voices.

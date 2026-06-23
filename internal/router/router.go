@@ -18,6 +18,11 @@ func (r *Registry) SelectHealthyBackend(kind Capability, model string, hc backen
 	return r.selectBackend(kind, model, hc)
 }
 
+// ReleaseBackend decrements the in-flight counter after a routed request completes.
+func (r *Registry) ReleaseBackend(name string) {
+	r.lb.Release(name)
+}
+
 func (r *Registry) selectBackend(kind Capability, model string, hc backend.HealthChecker) (BackendInfo, error) {
 	candidates := r.BackendsByCapability(kind)
 	if len(candidates) == 0 {
@@ -35,7 +40,7 @@ func (r *Registry) selectBackend(kind Capability, model string, hc backend.Healt
 	}
 
 	if model == "" {
-		return healthy[0], nil
+		return r.pickBalanced(healthy), nil
 	}
 
 	type scored struct {
@@ -59,7 +64,26 @@ func (r *Registry) selectBackend(kind Capability, model string, hc backend.Healt
 		return BackendInfo{}, backend.ErrNoHealthyBackend
 	}
 
-	return scoredCandidates[0].info, nil
+	topScore := scoredCandidates[0].score
+	var topTier []BackendInfo
+	for _, sc := range scoredCandidates {
+		if sc.score == topScore {
+			topTier = append(topTier, sc.info)
+		}
+	}
+	return r.pickBalanced(topTier), nil
+}
+
+func (r *Registry) pickBalanced(candidates []BackendInfo) BackendInfo {
+	names := make([]string, len(candidates))
+	byName := make(map[string]BackendInfo, len(candidates))
+	for i, c := range candidates {
+		names[i] = c.Name
+		byName[c.Name] = c
+	}
+	picked := r.lb.Select(names)
+	r.lb.Acquire(picked)
+	return byName[picked]
 }
 
 // scoreBackend computes a match score for a backend against a capability + model.
