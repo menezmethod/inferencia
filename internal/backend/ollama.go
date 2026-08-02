@@ -156,6 +156,16 @@ func (o *Ollama) chatCompletionNative(ctx context.Context, req ChatRequest) (*Ch
 }
 
 func (o *Ollama) ChatCompletionStream(ctx context.Context, req ChatRequest, send StreamFunc) error {
+	// Ollama's OpenAI-compatible streaming endpoint ignores `think:false`.
+	// That can stream only reasoning tokens and exhaust the token budget without
+	// ever yielding assistant content. Use the native endpoint in this case,
+	// then emit its completed answer as a standards-compatible SSE response.
+	// The caller still gets a definitive [DONE] boundary rather than a guessed
+	// timeout, and narration consumers never mistake private reasoning for text.
+	if req.Think != nil {
+		return o.chatCompletionNativeStream(ctx, req, send)
+	}
+
 	local := req
 	local.Stream = true
 
@@ -204,6 +214,38 @@ func (o *Ollama) ChatCompletionStream(ctx context.Context, req ChatRequest, send
 	}
 
 	return scanner.Err()
+}
+
+func (o *Ollama) chatCompletionNativeStream(ctx context.Context, req ChatRequest, send StreamFunc) error {
+	result, err := o.chatCompletionNative(ctx, req)
+	if err != nil {
+		return err
+	}
+	if len(result.Choices) == 0 || result.Choices[0].Message == nil {
+		return fmt.Errorf("ollama native stream: response has no assistant message")
+	}
+
+	content := result.Choices[0].Message.Content
+	if len(content) == 0 || string(content) == `""` || string(content) == "null" {
+		return fmt.Errorf("ollama native stream: response has empty assistant content")
+	}
+	chunk, err := json.Marshal(ChatResponse{
+		ID:      result.ID,
+		Object:  "chat.completion.chunk",
+		Created: time.Now().Unix(),
+		Model:   result.Model,
+		Choices: []Choice{{
+			Index: 0,
+			Delta: &Message{Role: "assistant", Content: content},
+		}},
+	})
+	if err != nil {
+		return fmt.Errorf("marshal native stream chunk: %w", err)
+	}
+	if err := send(chunk); err != nil {
+		return err
+	}
+	return send([]byte("[DONE]"))
 }
 
 func (o *Ollama) ListModels(ctx context.Context) (*ModelsResponse, error) {
