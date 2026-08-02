@@ -215,6 +215,10 @@ type ChatRequest struct {
 	TopLogprobs         *int            `json:"top_logprobs,omitempty"`
 	Seed                *int            `json:"seed,omitempty"`
 	User                string          `json:"user,omitempty"`
+	// Think controls Ollama reasoning for models that support it. It is an
+	// extension field: OpenAI clients may omit it, while callers that need a
+	// direct answer can set it to false.
+	Think *bool `json:"think,omitempty"`
 
 	// Tool calling support (OpenAI function calling protocol).
 	Tools      []Tool          `json:"tools,omitempty"`
@@ -228,6 +232,7 @@ type ChatRequest struct {
 type Message struct {
 	Role       string          `json:"role"`
 	Content    json.RawMessage `json:"content"` // string or array of content parts
+	Reasoning  string          `json:"reasoning,omitempty"`
 	Name       string          `json:"name,omitempty"`
 	ToolCalls  []ToolCall      `json:"tool_calls,omitempty"`
 	ToolCallID string          `json:"tool_call_id,omitempty"`

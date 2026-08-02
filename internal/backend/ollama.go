@@ -56,6 +56,10 @@ func (o *Ollama) Health(ctx context.Context) error {
 }
 
 func (o *Ollama) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
+	if req.Think != nil {
+		return o.chatCompletionNative(ctx, req)
+	}
+
 	local := req
 	local.Stream = false
 
@@ -86,6 +90,69 @@ func (o *Ollama) ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResp
 		return nil, fmt.Errorf("decode chat response: %w", err)
 	}
 	return &result, nil
+}
+
+// chatCompletionNative uses Ollama's native endpoint only for its `think`
+// switch. Ollama's OpenAI-compatible endpoint currently ignores that switch,
+// leaving reasoning models with an empty assistant content field.
+func (o *Ollama) chatCompletionNative(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
+	maxTokens := req.MaxTokens
+	if maxTokens == nil {
+		maxTokens = req.MaxCompletionTokens
+	}
+	type nativeOptions struct {
+		Temperature *float64 `json:"temperature,omitempty"`
+		NumPredict  *int     `json:"num_predict,omitempty"`
+	}
+	type nativeRequest struct {
+		Model    string        `json:"model"`
+		Messages []Message     `json:"messages"`
+		Stream   bool          `json:"stream"`
+		Think    *bool         `json:"think,omitempty"`
+		Options  nativeOptions `json:"options,omitempty"`
+	}
+	type nativeResponse struct {
+		Model           string  `json:"model"`
+		Message         Message `json:"message"`
+		DoneReason      string  `json:"done_reason"`
+		PromptEvalCount int     `json:"prompt_eval_count"`
+		EvalCount       int     `json:"eval_count"`
+	}
+
+	body, err := json.Marshal(nativeRequest{
+		Model: req.Model, Messages: req.Messages, Stream: false, Think: req.Think,
+		Options: nativeOptions{Temperature: req.Temperature, NumPredict: maxTokens},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal native chat request: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, o.baseURL+"/api/chat", bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create native chat request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := o.inferenceClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("ollama native chat completion: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("ollama native chat completion: status %d: %s", resp.StatusCode, string(respBody))
+	}
+	var result nativeResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode native chat response: %w", err)
+	}
+	finishReason := result.DoneReason
+	if finishReason == "" {
+		finishReason = "stop"
+	}
+	return &ChatResponse{
+		Object: "chat.completion", Model: result.Model,
+		Choices: []Choice{{Index: 0, Message: &result.Message, FinishReason: &finishReason}},
+		Usage:   &Usage{PromptTokens: result.PromptEvalCount, CompletionTokens: result.EvalCount, TotalTokens: result.PromptEvalCount + result.EvalCount},
+	}, nil
 }
 
 func (o *Ollama) ChatCompletionStream(ctx context.Context, req ChatRequest, send StreamFunc) error {
