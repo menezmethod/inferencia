@@ -41,9 +41,9 @@ Inferencia is a Go HTTP server that acts as a universal AI gateway, routing requ
 - **OpenAPI** — Full OpenAPI 3.1 spec with Swagger UI
 - **Coolify Ready** — Docker Compose with env substitution, production image
 
-## 🤖 Auto-Pipeline
+## 🤖 CI/CD
 
-This repo is part of an autonomous fleet. PRs are auto-reviewed, auto-tested, and auto-merged by the fleet pipeline.
+Luis designed and operates the CI/CD pipeline for this repo: every PR runs the full build/test/integration/sensitive-data suite, and routine merges to `main` (which triggers Coolify auto-deploy) are automated behind those required status checks — see [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## 📚 Documentation
 
