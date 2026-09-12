@@ -1,5 +1,7 @@
 # Optional: smoke test production deployment. Runs on schedule and manual trigger.
 # Set INFERENCIA_SMOKE_BASE_URL (and optionally INFERENCIA_E2E_API_KEY) in repo secrets.
+# When the secret is unset, this job fails loudly (scripts/smoke-prod.sh's own guard) —
+# a red check that says "not configured" beats a green one that never actually ran.
 name: Smoke (production)
 
 on:
@@ -13,16 +15,12 @@ jobs:
     name: Smoke production
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Smoke test production
         env:
           INFERENCIA_SMOKE_BASE_URL: ${{ secrets.INFERENCIA_SMOKE_BASE_URL }}
           INFERENCIA_E2E_API_KEY: ${{ secrets.INFERENCIA_E2E_API_KEY }}
         run: |
-          if [[ -z "${INFERENCIA_SMOKE_BASE_URL:-}" ]]; then
-            echo "INFERENCIA_SMOKE_BASE_URL not set — skipping production smoke"
-            exit 0
-          fi
           chmod +x scripts/smoke-prod.sh
           scripts/smoke-prod.sh
