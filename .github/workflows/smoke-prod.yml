@@ -1,7 +1,7 @@
 # Optional: smoke test production deployment. Runs on schedule and manual trigger.
 # Set INFERENCIA_SMOKE_BASE_URL (and optionally INFERENCIA_E2E_API_KEY) in repo secrets.
-# When the secret is unset, the "Smoke production" job is skipped (not a fake pass) —
-# see gate job below.
+# When the secret is unset, this job fails loudly (scripts/smoke-prod.sh's own guard) —
+# a red check that says "not configured" beats a green one that never actually ran.
 name: Smoke (production)
 
 on:
@@ -11,27 +11,8 @@ on:
     - cron: "0 6 * * *"
 
 jobs:
-  gate:
-    name: Check configuration
-    runs-on: ubuntu-latest
-    outputs:
-      configured: ${{ steps.check.outputs.configured }}
-    steps:
-      - id: check
-        env:
-          INFERENCIA_SMOKE_BASE_URL: ${{ secrets.INFERENCIA_SMOKE_BASE_URL }}
-        run: |
-          if [[ -z "${INFERENCIA_SMOKE_BASE_URL:-}" ]]; then
-            echo "INFERENCIA_SMOKE_BASE_URL not set — 'Smoke production' will show as skipped, not passing." | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
-
   smoke:
     name: Smoke production
-    needs: gate
-    if: needs.gate.outputs.configured == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
