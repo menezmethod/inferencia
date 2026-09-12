@@ -13,8 +13,8 @@ type minimalBackend struct {
 	name string
 }
 
-func (m minimalBackend) Name() string                          { return m.name }
-func (m minimalBackend) Health(context.Context) error         { return nil }
+func (m minimalBackend) Name() string                 { return m.name }
+func (m minimalBackend) Health(context.Context) error { return nil }
 func (m minimalBackend) ChatCompletion(context.Context, ChatRequest) (*ChatResponse, error) {
 	return nil, nil
 }
@@ -50,6 +50,16 @@ var _ = Describe("ChatRequest", func() {
 			Expect(decoded["logprobs"]).To(BeTrue())
 			Expect(decoded["top_logprobs"]).To(BeEquivalentTo(5))
 			Expect(decoded["seed"]).To(BeEquivalentTo(42))
+		})
+
+		It("includes the Ollama think extension when set", func() {
+			think := false
+			body, err := json.Marshal(ChatRequest{Model: "test", Think: &think})
+			Expect(err).NotTo(HaveOccurred())
+
+			var decoded map[string]any
+			Expect(json.Unmarshal(body, &decoded)).To(Succeed())
+			Expect(decoded["think"]).To(BeFalse())
 		})
 	})
 })
