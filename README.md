@@ -1,54 +1,52 @@
 # inferencia
 
-A lightweight, secure AI gateway that exposes local LLM and TTS servers to the internet through an OpenAI-compatible API.
+A small Go gateway that puts an OpenAI-compatible API in front of self-hosted LLM and TTS backends, with API-key auth, rate limiting, and Prometheus metrics. It is designed to run on small self-hosted hardware such as a Raspberry Pi, with the model servers on another machine on the same network.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/menezmethod/inferencia/ci.yml?branch=main&logo=github&label=CI)](https://github.com/menezmethod/inferencia/actions)
 [![Go Version](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-Run models on your own hardware. Access them from anywhere. Supports Ollama, LLaMA.cpp, and Kokoro TTS backends with smart routing, observability, and Coolify deployment.
+## What it does
 
-## 🚀 Quick Start
+- Serves `POST /v1/chat/completions`, `POST /v1/embeddings`, `GET /v1/models`, and `POST /v1/audio/speech`.
+- Backends: Ollama and MLX servers for chat and embeddings, and Kokoro-style HTTP servers for TTS.
+- Routes each request by capability (chat vs. TTS) and requested model, skips backends the health checker marks degraded, and picks the backend with the fewest in-flight requests (ties are round-robin).
+- Bearer-token auth from a keys file or `INFERENCIA_API_KEYS`, plus a token-bucket rate limiter.
+- Health and version endpoints (`/health`, `/health/ready`, `/version`), Prometheus metrics at `/metrics`, structured JSON logs, optional OpenTelemetry tracing, and Swagger UI at `/docs`.
+- Docker image and a Compose file written for Coolify. Grafana, Loki, and alert rules live under `deploy/`.
+
+## Quick start
 
 ```bash
-# Clone
 git clone https://github.com/menezmethod/inferencia.git
 cd inferencia
 
-# Build
-go build -o inferencia .
-
-# Configure
-cp .env.example .env
-# Set your backend URLs and API keys
-
-# Run
-./inferencia
-
-# Or with Docker
-docker compose up -d
+cp config.example.yaml config.yaml   # backend URLs, rate limits
+cp keys.example.txt keys.txt         # one API key per line
+make build
+./inferencia -config config.yaml
 ```
 
-## 🏗️ Architecture
+Or with Docker: `cp .env.example .env`, set your backend URLs and keys, then `docker compose up -d`.
 
-Inferencia is a Go HTTP server that acts as a universal AI gateway, routing requests to configured LLM (Ollama, LLaMA.cpp) and TTS (Kokoro) backends. It exposes an OpenAI-compatible `/v1/chat/completions` endpoint plus custom endpoints for TTS, health monitoring, and model inventory. Smart routing selects the optimal backend per request kind (chat vs. TTS) with configurable fallback chains. The server includes Prometheus metrics, structured logging with Loki, OpenTelemetry tracing, and a comprehensive health check system.
+## Development
 
-### Key Components
+```bash
+make test    # go test -race -count=1 ./...
+make lint    # go vet, then golangci-lint if installed
+```
 
-- **Smart Router** — Per-kind backend interfaces (LLM vs TTS) with configurable fallback chains
-- **Health System** — Comprehensive `/health` endpoint with model/voice inventory and per-service breakdown
-- **Observability** — Prometheus metrics, Grafana dashboards, Loki log aggregation, OpenTelemetry tracing
-- **OpenAPI** — Full OpenAPI 3.1 spec with Swagger UI
-- **Coolify Ready** — Docker Compose with env substitution, production image
+The unit tests use Ginkgo/Gomega. CI (`.github/workflows/ci.yml`) runs build, tests with the race detector, vet, golangci-lint, a sensitive-data check, gitleaks, and an integration job with Docker and Compose smoke tests. Merging to `main` triggers a Coolify deploy, so those checks are required by branch protection; see [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
-## 🤖 CI/CD
+## Documentation
 
-Luis designed and operates the CI/CD pipeline for this repo: every PR runs the full build/test/integration/sensitive-data suite, and routine merges to `main` (which triggers Coolify auto-deploy) are automated behind those required status checks — see [docs/PUBLISHING.md](docs/PUBLISHING.md).
+- [docs/openapi.yaml](docs/openapi.yaml): API spec (also served at `/openapi.yaml`)
+- [docs/AGENT_ONBOARDING.md](docs/AGENT_ONBOARDING.md): client setup examples
+- [docs/METRICS_AND_LOGGING.md](docs/METRICS_AND_LOGGING.md): metrics and log fields
+- [ROADMAP.md](ROADMAP.md): what is done and what is not
+- [AGENTS.md](AGENTS.md), [CLAUDE.md](CLAUDE.md): context files for AI coding assistants used on this repo
+- [SECURITY.md](SECURITY.md)
 
-## 📚 Documentation
+## License
 
-- [PRD](./PRD.md) — Product Requirements Document
-- [Architecture (RICO)](./RICO.md) — Architecture decision records
-- [OpenAPI Spec](./api/openapi.yaml) — API documentation
-- [AGENTS.md](./AGENTS.md) — Agent instructions
-- [ROADMAP.md](./ROADMAP.md) — Development roadmap
+MIT, see [LICENSE](LICENSE).
