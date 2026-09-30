@@ -1,7 +1,6 @@
 # inferencia — Roadmap
 
-Phased plan for closing feature gaps. Each phase is self-contained and shippable.
-Agents: pick the next `[ ]` item, implement it, test it, and check it off.
+Phased plan for closing feature gaps. Checked items are implemented in the code; unchecked items are not started.
 
 ---
 
@@ -9,7 +8,7 @@ Agents: pick the next `[ ]` item, implement it, test it, and check it off.
 
 Fill gaps in the OpenAI chat completions contract so every mainstream SDK works without surprises.
 
-- [ ] **Add `logprobs` and `seed` to ChatRequest** — add fields to `backend.ChatRequest`, pass through to backend
+- [x] **Add `logprobs` and `seed` to ChatRequest** — add fields to `backend.ChatRequest`, pass through to backend
 - [ ] **Stream usage reporting** — parse the final streaming chunk for `usage` data; record in metrics (currently only non-streaming tracks tokens)
 - [ ] **Add `stream_options` to ChatRequest** — support `include_usage: true` per OpenAI spec
 - [ ] **Legacy completions endpoint** — `POST /v1/completions` (non-chat) for clients that still use it
@@ -18,11 +17,11 @@ Fill gaps in the OpenAI chat completions contract so every mainstream SDK works 
 
 Move from single-backend proxy to smart routing across multiple backends.
 
-- [ ] **Ollama backend adapter** — implement `backend.Ollama` (currently stubbed); translate between Ollama native API and OpenAI format
-- [ ] **Model-to-backend routing** — route requests to the backend that serves the requested model (e.g. `llama` → Ollama, `gpt-oss` → MLX)
+- [x] **Ollama backend adapter** — implement `backend.Ollama` (implemented in `internal/backend/ollama.go`); translate between Ollama native API and OpenAI format
+- [x] **Model-to-backend routing** — route requests to the backend that serves the requested model (e.g. `llama` → Ollama, `gpt-oss` → MLX)
 - [ ] **Backend failover** — if primary backend is down, try the next healthy one
-- [ ] **Health-based routing** — skip backends where `Health()` fails; combine with readiness probe
-- [ ] **Backend load balancing** — round-robin or least-connections across backends of the same type
+- [x] **Health-based routing** — skip backends where `Health()` fails; combine with readiness probe
+- [x] **Backend load balancing** — round-robin or least-connections across backends of the same type
 
 ## Phase 3 — Auth & key management
 
@@ -41,7 +40,7 @@ Make metrics and logging production-complete.
 - [ ] **Per-key metrics labels** — add masked `api_key` label to Prometheus counters (watch cardinality)
 - [ ] **Streaming token estimation** — estimate tokens from streaming chunks when backend doesn't report usage
 - [ ] **Grafana Loki alerting rules** — add LogQL-based alert rules (e.g. `rate({service="inferencia"} | json | status=500 [5m]) > 0.1`)
-- [ ] **OpenTelemetry tracing** — optional OTLP exporter for distributed tracing (behind `INFERENCIA_OTEL_ENDPOINT` env flag)
+- [x] **OpenTelemetry tracing** — optional OTLP exporter for distributed tracing (behind `INFERENCIA_OTEL_ENDPOINT` env flag)
 - [ ] **Audit log** — optional separate log stream for auth events (key used, key rejected, key rate-limited)
 
 ## Phase 5 — Extended API surface
@@ -65,17 +64,6 @@ Features for running inferencia reliably in production long-term.
 
 ---
 
-## How to use this file
+## Notes
 
-**For agents (AI or human):**
-
-1. Read this file to understand what's done and what's next
-2. Pick the next unchecked `[ ]` item in the lowest incomplete phase
-3. Implement it on a branch, with tests
-4. Update this file: change `[ ]` to `[x]` for completed items
-5. Open a PR or commit to main
-
-**Priorities:** Phases are ordered by impact. Complete Phase 1 before Phase 2, etc.
-Within a phase, items are roughly ordered by importance but can be done in any order.
-
-**Adding new items:** Append to the appropriate phase. If it doesn't fit, add a new phase at the end.
+Items are roughly ordered by importance within a phase. Backend failover is not checked off: TTS requests skip unhealthy backends, but chat requests are not retried on a second backend.
