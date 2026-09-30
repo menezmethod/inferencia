@@ -13,7 +13,7 @@ Internet → Cloudflare Tunnel → Pi5:80 → Traefik → inferencia:8080
                             ↓                                                         ↓
                    Ollama (:11434)                            Kokoro (:50051) / Chatterbox (:50052)
                    (chat, embed)                                       (TTS)
-                   Mac M4 Max — 192.168.0.109
+                   Mac M4 Max — 192.168.0.x
 ```
 
 - **Raspberry Pi 5** — Runs only inferencia (Go binary). No ML models.
@@ -61,7 +61,7 @@ inferencia/
 
 ### Base URL
 ```
-https://llm.menezmethod.com/v1
+https://your-inferencia.example.com/v1
 ```
 
 ### Default Chat Model
@@ -145,9 +145,9 @@ Returns **200** if all services healthy, **503** if any service is degraded.
 ```
 INFERENCIA_HOST=0.0.0.0
 INFERENCIA_PORT=8080
-INFERENCIA_BACKEND_URL=http://192.168.0.109:11434
-INFERENCIA_KOKORO_URL=http://192.168.0.109:50051
-INFERENCIA_CHATTERBOX_URL=http://192.168.0.109:50052
+INFERENCIA_BACKEND_URL=http://192.168.0.x:11434
+INFERENCIA_KOKORO_URL=http://192.168.0.x:50051
+INFERENCIA_CHATTERBOX_URL=http://192.168.0.x:50052
 INFERENCIA_API_KEYS=sk-...
 ```
 

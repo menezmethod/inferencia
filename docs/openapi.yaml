@@ -20,7 +20,7 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: https://llm.menezmethod.com
+  - url: https://your-inferencia.example.com
     description: Production deployment (Coolify + Cloudflare Tunnel)
   - url: http://localhost:8080
     description: Local development
@@ -153,10 +153,10 @@ paths:
                         owned_by: ollama
                   kokoro:
                     status: unhealthy
-                    error: "tts health check: dial tcp 192.168.0.109:50051: connect: connection refused"
+                    error: "tts health check: dial tcp 192.168.0.x:50051: connect: connection refused"
                   chatterbox:
                     status: unhealthy
-                    error: "tts health check: dial tcp 192.168.0.109:50052: connect: connection refused"
+                    error: "tts health check: dial tcp 192.168.0.x:50052: connect: connection refused"
                 summary:
                   total: 3
                   healthy: 1
@@ -242,7 +242,7 @@ paths:
               example:
                 status: unavailable
                 backend: ollama
-                error: "ollama health check: dial tcp 192.168.0.109:11434: connect: connection refused"
+                error: "ollama health check: dial tcp 192.168.0.x:11434: connect: connection refused"
                 version: "1.0.0"
 
   /v1/audio/speech:

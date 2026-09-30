@@ -1,12 +1,12 @@
 # Kokoro TTS Server
 
-Production-ready HTTP server wrapping [Kokoro](https://github.com/remsky/Kokoro-FastAPI) TTS as an OpenAI-compatible API. Designed to run 24/7 on the Mac Mini M4 Max (`192.168.0.109`) and serve TTS requests from **inferencia** (Go binary on Raspberry Pi 5) over LAN.
+Production-ready HTTP server wrapping [Kokoro](https://github.com/remsky/Kokoro-FastAPI) TTS as an OpenAI-compatible API. Designed to run 24/7 on the Mac Mini M4 Max (`192.168.0.x`) and serve TTS requests from **inferencia** (Go binary on Raspberry Pi 5) over LAN.
 
 ## Architecture
 
 ```
  Pi5 (inferencia)  ──HTTP──►  Mac M4 Max (kokoro-server)
- 192.168.0.108                 192.168.0.109:50051
+ 192.168.0.x                 192.168.0.x:50051
 ```
 
 - inferencia connects via HTTP — **not** a subprocess call.
@@ -27,7 +27,7 @@ Production-ready HTTP server wrapping [Kokoro](https://github.com/remsky/Kokoro-
 ### 1. Install dependencies
 
 ```bash
-cd /Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers
+cd /path/to/inferencia/deploy/tts-servers
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
