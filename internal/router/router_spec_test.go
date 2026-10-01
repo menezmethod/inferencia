@@ -19,34 +19,6 @@ var _ = Describe("Registry", func() {
 		})
 	})
 
-	Describe("Register and Get", func() {
-		It("registers a BackendInfo and retrieves it by name", func() {
-			reg := NewRegistry()
-			info := BackendInfo{
-				Name: "test-backend",
-				Capabilities: []Capability{CapChat, CapEmbed},
-				Models: []ModelInfo{
-					{ID: "llama3", Provider: "ollama", Kind: CapChat},
-				},
-			}
-			reg.Register(info)
-
-			got, ok := reg.Get("test-backend")
-			Expect(ok).To(BeTrue())
-			Expect(got.Name).To(Equal("test-backend"))
-			Expect(got.Capabilities).To(ContainElement(CapChat))
-			Expect(got.Capabilities).To(ContainElement(CapEmbed))
-		})
-
-		It("returns false for unknown name", func() {
-			reg := NewRegistry()
-			reg.Register(BackendInfo{Name: "known"})
-
-			_, ok := reg.Get("unknown")
-			Expect(ok).To(BeFalse())
-		})
-	})
-
 	Describe("All", func() {
 		It("returns all registered backends", func() {
 			reg := NewRegistry()
@@ -61,59 +33,35 @@ var _ = Describe("Registry", func() {
 	})
 
 	Describe("BackendsByCapability", func() {
-		It("returns backends filtered by capability", func() {
+		It("returns only backends with the capability, sorted by name", func() {
 			reg := NewRegistry()
-			reg.Register(BackendInfo{
-				Name:         "chat-bot",
-				Capabilities: []Capability{CapChat},
-			})
-			reg.Register(BackendInfo{
-				Name:         "tts-bot",
-				Capabilities: []Capability{CapTTS},
-			})
-			reg.Register(BackendInfo{
-				Name:         "hybrid",
-				Capabilities: []Capability{CapChat, CapTTS},
-			})
+			reg.Register(BackendInfo{Name: "zzz", Capabilities: []Capability{CapTTS}})
+			reg.Register(BackendInfo{Name: "aaa", Capabilities: []Capability{CapTTS}})
+			reg.Register(BackendInfo{Name: "plain"})
 
-			ttsBackends := reg.BackendsByCapability(CapTTS)
-			Expect(ttsBackends).To(HaveLen(2))
-			ttsNames := []string{ttsBackends[0].Name, ttsBackends[1].Name}
-			Expect(ttsNames).To(ConsistOf("tts-bot", "hybrid"))
-
-			chatBackends := reg.BackendsByCapability(CapChat)
-			Expect(chatBackends).To(HaveLen(2))
+			got := reg.BackendsByCapability(CapTTS)
+			Expect(got).To(HaveLen(2))
+			Expect(got[0].Name).To(Equal("aaa"))
+			Expect(got[1].Name).To(Equal("zzz"))
 		})
 
 		It("returns empty slice when no backends support the capability", func() {
 			reg := NewRegistry()
-			reg.Register(BackendInfo{
-				Name:         "chat-bot",
-				Capabilities: []Capability{CapChat},
-			})
+			reg.Register(BackendInfo{Name: "plain"})
 
-			embedBackends := reg.BackendsByCapability(CapEmbed)
-			Expect(embedBackends).To(BeEmpty())
+			Expect(reg.BackendsByCapability(CapTTS)).To(BeEmpty())
 		})
 	})
 })
 
-var _ = Describe("SelectBackend", func() {
+var _ = Describe("SelectHealthyBackend", func() {
 	Describe("by capability", func() {
-		It("returns the first backend that supports the capability when no model specified", func() {
+		It("returns a backend that supports the capability when no model specified", func() {
 			reg := NewRegistry()
-			reg.Register(BackendInfo{
-				Name:         "tts-one",
-				TTSBackend:   &mockTTSBackend{name: "mock-tts"},
-				Capabilities: []Capability{CapTTS},
-			})
-			reg.Register(BackendInfo{
-				Name:         "tts-two",
-				TTSBackend:   &mockTTSBackend{name: "mock-tts"},
-				Capabilities: []Capability{CapTTS},
-			})
+			reg.Register(BackendInfo{Name: "tts-one", TTSBackend: &mockTTSBackend{name: "mock-tts"}, Capabilities: []Capability{CapTTS}})
+			reg.Register(BackendInfo{Name: "tts-two", TTSBackend: &mockTTSBackend{name: "mock-tts"}, Capabilities: []Capability{CapTTS}})
 
-			info, err := reg.SelectBackend(CapTTS, "")
+			info, err := reg.SelectHealthyBackend(CapTTS, "", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(info.Capabilities).To(ContainElement(CapTTS))
 		})
@@ -126,32 +74,25 @@ var _ = Describe("SelectBackend", func() {
 				Name:         "default",
 				TTSBackend:   &mockTTSBackend{name: "mock-tts"},
 				Capabilities: []Capability{CapTTS},
-				Models: []ModelInfo{
-					{ID: "kokoro", Provider: "kokoro", Kind: CapTTS},
-				},
+				Models:       []ModelInfo{{ID: "kokoro", Provider: "kokoro", Kind: CapTTS}},
 			})
 			reg.Register(BackendInfo{
 				Name:         "premium",
 				TTSBackend:   &mockTTSBackend{name: "mock-tts"},
 				Capabilities: []Capability{CapTTS},
-				Models: []ModelInfo{
-					{ID: "elevenlabs", Provider: "elevenlabs", Kind: CapTTS},
-				},
+				Models:       []ModelInfo{{ID: "elevenlabs", Provider: "elevenlabs", Kind: CapTTS}},
 			})
 
-			info, err := reg.SelectBackend(CapTTS, "kokoro")
+			info, err := reg.SelectHealthyBackend(CapTTS, "kokoro", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(info.Name).To(Equal("default"))
 		})
 
 		It("returns error when no backends support the capability", func() {
 			reg := NewRegistry()
-			reg.Register(BackendInfo{
-				Name:         "chat-bot",
-				Capabilities: []Capability{CapChat},
-			})
+			reg.Register(BackendInfo{Name: "plain"})
 
-			_, err := reg.SelectBackend(CapTTS, "")
+			_, err := reg.SelectHealthyBackend(CapTTS, "", nil)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -159,22 +100,14 @@ var _ = Describe("SelectBackend", func() {
 	Describe("load balancing", func() {
 		It("distributes requests across backends with equal capability", func() {
 			reg := NewRegistry()
-			reg.Register(BackendInfo{
-				Name:         "tts-a",
-				TTSBackend:   &mockTTSBackend{name: "tts-a"},
-				Capabilities: []Capability{CapTTS},
-			})
-			reg.Register(BackendInfo{
-				Name:         "tts-b",
-				TTSBackend:   &mockTTSBackend{name: "tts-b"},
-				Capabilities: []Capability{CapTTS},
-			})
+			reg.Register(BackendInfo{Name: "tts-a", TTSBackend: &mockTTSBackend{name: "tts-a"}, Capabilities: []Capability{CapTTS}})
+			reg.Register(BackendInfo{Name: "tts-b", TTSBackend: &mockTTSBackend{name: "tts-b"}, Capabilities: []Capability{CapTTS}})
 
-			info1, err := reg.SelectBackend(CapTTS, "")
+			info1, err := reg.SelectHealthyBackend(CapTTS, "", nil)
 			Expect(err).NotTo(HaveOccurred())
 			reg.ReleaseBackend(info1.Name)
 
-			info2, err := reg.SelectBackend(CapTTS, "")
+			info2, err := reg.SelectHealthyBackend(CapTTS, "", nil)
 			Expect(err).NotTo(HaveOccurred())
 			reg.ReleaseBackend(info2.Name)
 
@@ -196,12 +129,12 @@ var _ = Describe("SelectBackend", func() {
 				Models:       []ModelInfo{{ID: "kokoro", Kind: CapTTS}},
 			})
 
-			info1, err := reg.SelectBackend(CapTTS, "kokoro")
+			info1, err := reg.SelectHealthyBackend(CapTTS, "kokoro", nil)
 			Expect(err).NotTo(HaveOccurred())
 			// Simulate an in-flight request on the first pick.
-			// Acquire already happened in SelectBackend; do not release info1.
+			// Acquire already happened in SelectHealthyBackend; do not release info1.
 
-			info2, err := reg.SelectBackend(CapTTS, "kokoro")
+			info2, err := reg.SelectHealthyBackend(CapTTS, "kokoro", nil)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(info2.Name).NotTo(Equal(info1.Name))
 
@@ -210,7 +143,7 @@ var _ = Describe("SelectBackend", func() {
 		})
 	})
 
-	Describe("SelectHealthyBackend", func() {
+	Describe("health filtering", func() {
 		It("returns error when the requested model backend is degraded", func() {
 			reg := NewRegistry()
 			reg.Register(BackendInfo{
@@ -270,8 +203,8 @@ type mockTTSBackend struct {
 	name string
 }
 
-func (m *mockTTSBackend) Name() string                                       { return m.name }
-func (m *mockTTSBackend) Health(ctx context.Context) error                    { return nil }
+func (m *mockTTSBackend) Name() string                     { return m.name }
+func (m *mockTTSBackend) Health(ctx context.Context) error { return nil }
 func (m *mockTTSBackend) Synthesize(ctx context.Context, req backend.TTSRequest) (*backend.TTSResponse, error) {
 	return &backend.TTSResponse{Audio: []byte{}, Format: "audio/wav"}, nil
 }

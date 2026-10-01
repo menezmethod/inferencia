@@ -2,7 +2,7 @@
 
 A lightweight, production-grade AI gateway that exposes local LLM and TTS servers through an OpenAI-compatible REST API. Hosted on a Raspberry Pi 5 with all ML compute running on a Mac M4 Max over LAN.
 
-**Default chat model (when `model` is omitted):** `gemma4:e4b`
+**Default chat model (when `model` is omitted):** `qwen3.6:35b-a3b-coding-bf16` (or the configured `routing.default_role`)
 
 ---
 
@@ -58,7 +58,7 @@ Contact the administrator to obtain an API key.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `model` | string | Yes | Model ID from `/v1/models` (default: `gemma4:e4b`) |
+| `model` | string | Yes | Model ID from `/v1/models` (default: `qwen3.6:35b-a3b-coding-bf16`). May also be a virtual role (`inferencia-planner`, `inferencia-worker`) or `backend/model` ID. |
 | `messages` | array | Yes | Conversation messages (`role` + `content`) |
 | `temperature` | number | No | Sampling temperature (0–2) |
 | `max_tokens` | integer | No | Maximum tokens to generate |
@@ -315,6 +315,12 @@ print(response.data[0].embedding)
 
 ## List Models
 
+`GET /v1/models` returns every healthy backend's inventory, namespaced as
+`<backend>/<model>` (e.g. `ollama/gemma4:e4b`,
+`commandcode/deepseek/deepseek-v4.1-flash`), plus any configured virtual role
+models (`inferencia-planner`, `inferencia-worker`, ...). Send advertised IDs
+back verbatim as the `model` in chat requests.
+
 ### curl
 
 ```bash
@@ -410,11 +416,32 @@ Returns **503** with per-backend detail:
 
 ### Chat models (via Ollama on Mac M4 Max)
 
-- `gemma4:e4b` — **default**
+- `qwen3.6:35b-a3b-coding-bf16` — **default**
+- `gemma4:e4b`
 - `qwen3.5` (122b, 35b, 27b, 9b, 4b, 2b, 0.8b)
 - `qwen3` (0.6b)
 - `qwen3.6` (27b-code, 35b-code, 35a3b-mlx)
 - `gpt-oss:20b-cloud`
+
+### Virtual role models (task-aware routing)
+
+When `routing.roles` is configured (e.g. Command Code planner/worker split),
+`/v1/models` also advertises:
+
+- `inferencia-planner` — strongest model for planning (e.g. `meta/muse-spark-1.3-contributor`)
+- `inferencia-worker` — cost-efficient model for execution (e.g. `deepseek/deepseek-v4.1-flash`)
+- `inferencia-auto`, `inferencia-fast`, `inferencia-reviewer` — optional aliases
+
+Requests may also address any backend directly: `<backend>/<model>` (e.g.
+`commandcode/deepseek/deepseek-v4.1-flash`). Unknown models fall back to the
+default role (or primary backend); response headers report the decision:
+
+| Header | Meaning |
+|---|---|
+| `X-Routed-Backend` | Backend that served the request |
+| `X-Routed-Model` | Upstream model ID after role resolution |
+| `X-Routed-Role` | Role that matched (`worker`, `planner`, ...) |
+| `X-Routed-Fallback` | Present when a role/unknown-model fallback was used (`worker`, `default`) |
 
 ### Embedding models
 

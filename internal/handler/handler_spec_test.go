@@ -11,21 +11,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/menezmethod/inferencia/internal/backend"
+	"github.com/menezmethod/inferencia/internal/config"
 )
-
-var _ = Describe("Health", func() {
-	It("returns 200 and status ok", func() {
-		h := Health()
-		req := httptest.NewRequest(http.MethodGet, "/health", nil)
-		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, req)
-
-		Expect(rec.Code).To(Equal(http.StatusOK))
-		var resp map[string]string
-		Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
-		Expect(resp["status"]).To(Equal("ok"))
-	})
-})
 
 var _ = Describe("Ready", func() {
 	When("the backend is healthy", func() {
@@ -266,7 +253,7 @@ var _ = Describe("Models", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := Models(reg, nil, discardLogger())
+			h := Models(reg, nil, config.Routing{}, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -275,7 +262,7 @@ var _ = Describe("Models", func() {
 			var resp backend.ModelsResponse
 			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
 			Expect(resp.Data).To(HaveLen(1))
-			Expect(resp.Data[0].ID).To(Equal("gpt-oss-20b"))
+			Expect(resp.Data[0].ID).To(Equal("mock/gpt-oss-20b"))
 		})
 	})
 
@@ -283,7 +270,7 @@ var _ = Describe("Models", func() {
 		It("returns 503", func() {
 			mock := &mockBackend{modelsErr: errors.New("connection refused")}
 			reg := newTestRegistry(mock)
-			h := Models(reg, nil, discardLogger())
+			h := Models(reg, nil, config.Routing{}, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -294,7 +281,7 @@ var _ = Describe("Models", func() {
 	When("no primary backend is registered", func() {
 		It("returns 503 BackendUnavailable", func() {
 			reg := backend.NewRegistry()
-			h := Models(reg, nil, discardLogger())
+			h := Models(reg, nil, config.Routing{}, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -317,7 +304,7 @@ var _ = Describe("ChatCompletions", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -334,7 +321,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("messages are empty", func() {
 		It("returns 400", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			rec := httptest.NewRecorder()
@@ -354,7 +341,7 @@ var _ = Describe("ChatCompletions", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -379,7 +366,7 @@ var _ = Describe("ChatCompletions", func() {
 				},
 			}
 			reg := newTestRegistry(mock)
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}],"logprobs":true,"top_logprobs":5,"seed":42}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -399,7 +386,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("body is invalid JSON", func() {
 		It("returns 400", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader("not json"))
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
@@ -410,7 +397,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("stream is true", func() {
 		It("returns 200 with SSE and [DONE]", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}],"stream":true}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -428,7 +415,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("no primary backend is registered", func() {
 		It("returns 503 BackendUnavailable", func() {
 			reg := backend.NewRegistry() // empty
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -442,7 +429,7 @@ var _ = Describe("ChatCompletions", func() {
 		It("returns 504 backend_timeout", func() {
 			mock := &mockBackend{chatErr: errors.New("ollama chat completion: context deadline exceeded")}
 			reg := newTestRegistry(mock)
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -464,7 +451,7 @@ var _ = Describe("ChatCompletions", func() {
 		It("returns 503 backend_overloaded", func() {
 			mock := &mockBackend{chatErr: errors.New("ollama chat completion: status 429: server busy")}
 			reg := newTestRegistry(mock)
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -489,7 +476,7 @@ var _ = Describe("ChatCompletions", func() {
 			}
 			reg := newTestRegistry(mock)
 			hc := stubHealthChecker{healthy: map[string]bool{"mock": false}}
-			h := ChatCompletions(reg, hc, discardLogger())
+			h := ChatCompletions(reg, hc, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}]}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -504,7 +491,7 @@ var _ = Describe("ChatCompletions", func() {
 	When("stream is true but ResponseWriter is not a Flusher", func() {
 		It("returns 500 Internal", func() {
 			reg := newTestRegistry(&mockBackend{})
-			h := ChatCompletions(reg, nil, discardLogger())
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
 			body := `{"model":"test","messages":[{"role":"user","content":"hi"}],"stream":true}`
 			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
@@ -513,6 +500,153 @@ var _ = Describe("ChatCompletions", func() {
 			type noFlusher struct{ http.ResponseWriter }
 			h.ServeHTTP(noFlusher{rec}, req)
 			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
+		})
+	})
+})
+
+var _ = Describe("Role routing", func() {
+	When("a virtual role resolves to an upstream model", func() {
+		It("rewrites the model and sets routing headers", func() {
+			finish := "stop"
+			mock := &mockBackend{
+				chatResp: &backend.ChatResponse{
+					ID: "chatcmpl-test", Object: "chat.completion", Model: "deepseek/deepseek-v4.1-flash",
+					Choices: []backend.Choice{{Index: 0, Message: &backend.Message{Role: "assistant", Content: json.RawMessage(`"ok"`)}, FinishReason: &finish}},
+				},
+				modelsResp: &backend.ModelsResponse{Object: "list"},
+			}
+			reg := newTestRegistry(mock)
+			routing := config.Routing{
+				DefaultRole: "inferencia-worker",
+				Roles: map[string]config.Role{
+					"inferencia-worker": {Backend: "mock", Models: []string{"deepseek/deepseek-v4.1-flash"}},
+				},
+			}
+			h := ChatCompletions(reg, nil, routing, nil, nil, discardLogger())
+			body := `{"model":"inferencia-worker","messages":[{"role":"user","content":"hi"}]}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(mock.lastChatReq.Model).To(Equal("deepseek/deepseek-v4.1-flash"))
+			Expect(rec.Header().Get("X-Routed-Backend")).To(Equal("mock"))
+			Expect(rec.Header().Get("X-Routed-Model")).To(Equal("deepseek/deepseek-v4.1-flash"))
+			Expect(rec.Header().Get("X-Routed-Role")).To(Equal("worker"))
+		})
+	})
+
+	When("an unknown model arrives with a default role", func() {
+		It("falls back to the default role model", func() {
+			finish := "stop"
+			mock := &mockBackend{
+				chatResp: &backend.ChatResponse{
+					ID: "chatcmpl-test", Object: "chat.completion", Model: "x",
+					Choices: []backend.Choice{{Index: 0, Message: &backend.Message{Role: "assistant", Content: json.RawMessage(`"ok"`)}, FinishReason: &finish}},
+				},
+			}
+			reg := newTestRegistry(mock)
+			routing := config.Routing{
+				DefaultRole: "inferencia-worker",
+				Roles: map[string]config.Role{
+					"inferencia-worker": {Backend: "mock", Models: []string{"fallback-model"}},
+				},
+			}
+			h := ChatCompletions(reg, nil, routing, nil, nil, discardLogger())
+			body := `{"model":"nope-unknown","messages":[{"role":"user","content":"hi"}]}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(mock.lastChatReq.Model).To(Equal("fallback-model"))
+			Expect(rec.Header().Get("X-Routed-Fallback")).To(Equal("worker"))
+			Expect(rec.Header().Get("X-Routed-Role")).To(Equal("worker"))
+		})
+
+		It("does not mark fallback when a direct backend/model is served", func() {
+			finish := "stop"
+			mock := &mockBackend{
+				chatResp: &backend.ChatResponse{
+					ID: "chatcmpl-test", Object: "chat.completion", Model: "x",
+					Choices: []backend.Choice{{Index: 0, Message: &backend.Message{Role: "assistant", Content: json.RawMessage(`"ok"`)}, FinishReason: &finish}},
+				},
+			}
+			reg := newTestRegistry(mock)
+			h := ChatCompletions(reg, nil, config.Routing{}, nil, nil, discardLogger())
+			body := `{"model":"mock/direct-model","messages":[{"role":"user","content":"hi"}]}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(mock.lastChatReq.Model).To(Equal("direct-model"))
+			Expect(rec.Header().Get("X-Routed-Fallback")).To(BeEmpty())
+			Expect(rec.Header().Get("X-Routed-Backend")).To(Equal("mock"))
+		})
+	})
+
+	When("GET /v1/models aggregates roles and backends", func() {
+		It("lists virtual roles plus namespaced upstream models", func() {
+			mock := &mockBackend{
+				modelsResp: &backend.ModelsResponse{
+					Object: "list",
+					Data: []backend.Model{
+						{ID: "qwen3", Object: "model", OwnedBy: "local"},
+						{ID: "deepseek/deepseek-v4.1-flash", Object: "model", OwnedBy: "commandcode"},
+					},
+				},
+			}
+			reg := newTestRegistry(mock)
+			routing := config.Routing{
+				Roles: map[string]config.Role{
+					"inferencia-worker": {Backend: "mock", Models: []string{"m"}},
+				},
+			}
+			h := Models(reg, nil, routing, nil, discardLogger())
+			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var resp backend.ModelsResponse
+			Expect(json.NewDecoder(rec.Body).Decode(&resp)).NotTo(HaveOccurred())
+			ids := []string{}
+			for _, m := range resp.Data {
+				ids = append(ids, m.ID)
+			}
+			Expect(ids).To(ContainElement("inferencia-worker"))
+			Expect(ids).To(ContainElement("mock/qwen3"))
+			Expect(ids).To(ContainElement("mock/deepseek/deepseek-v4.1-flash"))
+		})
+	})
+
+	When("a chat-only backend and an embed backend are registered", func() {
+		It("routes embeddings to the embed-capable backend", func() {
+			chatOnly := &mockEmbedUnsupportedBackend{}
+			embedder := &mockBackend{name: "embedder", embedResp: &backend.EmbedResponse{Object: "list"}}
+			reg := backend.NewRegistry()
+			reg.Register(chatOnly)
+			reg.Register(embedder)
+			h := Embeddings(reg, nil, discardLogger())
+			body := `{"model":"x","input":"hi"}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+	})
+
+	When("only a chat-only backend is registered", func() {
+		It("returns 503, not a bogus probe", func() {
+			mock := &mockEmbedUnsupportedBackend{}
+			reg := newTestRegistry(mock)
+			h := Embeddings(reg, nil, discardLogger())
+			body := `{"model":"x","input":"hi"}`
+			req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(body))
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		})
 	})
 })

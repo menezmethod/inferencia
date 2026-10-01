@@ -2,18 +2,17 @@ package router
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/menezmethod/inferencia/internal/backend"
 )
 
 // Registry manages backends with capability awareness.
-// It holds both chat/embed backends and TTS backends, and supports
-// querying by name, capability, or model.
+// It holds TTS backends and supports querying by name, capability, or model.
 type Registry struct {
 	mu       sync.RWMutex
 	backends map[string]BackendInfo
-	routes   []ModelRoute
 	lb       *backend.LoadBalancer
 }
 
@@ -31,24 +30,6 @@ func (r *Registry) Register(info BackendInfo) {
 	defer r.mu.Unlock()
 
 	r.backends[info.Name] = info
-
-	// Build model routes from the backend's models.
-	for _, m := range info.Models {
-		r.routes = append(r.routes, ModelRoute{
-			Model:       m.ID,
-			Capability:  m.Kind,
-			BackendName: info.Name,
-		})
-	}
-}
-
-// Get returns a BackendInfo by name.
-func (r *Registry) Get(name string) (BackendInfo, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	info, ok := r.backends[name]
-	return info, ok
 }
 
 // All returns all registered BackendInfo entries.
@@ -71,7 +52,8 @@ func (r *Registry) Len() int {
 	return len(r.backends)
 }
 
-// BackendsByCapability returns all backends that support the given capability.
+// BackendsByCapability returns all backends that support the given capability,
+// sorted by name so selection and round-robin ties are deterministic.
 func (r *Registry) BackendsByCapability(kind Capability) []BackendInfo {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -85,6 +67,7 @@ func (r *Registry) BackendsByCapability(kind Capability) []BackendInfo {
 			}
 		}
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 	return result
 }
 

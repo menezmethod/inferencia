@@ -38,8 +38,11 @@ You should see Prometheus exposition format: `# HELP`, `# TYPE`, and lines like 
 | `inferencia_http_requests_in_flight` | Gauge | Active requests |
 | `inferencia_tokens_total` | Counter | Tokens by model and type (prompt/completion) |
 | `inferencia_backend_healthy` | Gauge | Backend up (1) or down (0) |
-| `inferencia_backend_request_duration_seconds` | Histogram | Backend latency |
 | `inferencia_ratelimit_rejections_total` | Counter | Rate-limited requests |
+| `inferencia_router_decisions_total` | Counter | Chat/TTS routing decisions by capability and backend |
+| `inferencia_tts_requests_total` | Counter | TTS synthesis requests by backend and status |
+| `inferencia_tts_request_duration_seconds` | Histogram | TTS synthesis latency |
+| `inferencia_tts_characters_total` | Counter | Characters sent for TTS synthesis |
 
 ### 2.3 Scraping with Prometheus (optional)
 

@@ -10,11 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
 	"github.com/menezmethod/inferencia/internal/auth"
 	"github.com/menezmethod/inferencia/internal/backend"
 	"github.com/menezmethod/inferencia/internal/config"
+	"github.com/menezmethod/inferencia/internal/decision"
 	"github.com/menezmethod/inferencia/internal/logging"
-	"github.com/menezmethod/inferencia/internal/middleware"
 	"github.com/menezmethod/inferencia/internal/observability"
 	"github.com/menezmethod/inferencia/internal/router"
 	"github.com/menezmethod/inferencia/internal/server"
@@ -52,8 +54,28 @@ func main() {
 		}
 		switch b.Type {
 		case "mlx":
-			reg.Register(backend.NewMLX(b.Name, b.URL, healthTimeout, b.Timeout))
+			// MLX speaks OpenAI-compatible HTTP; the Ollama adapter covers it
+			// (native Ollama endpoints are only used when a think control is sent).
+			reg.Register(backend.NewOllama(b.Name, b.URL, healthTimeout, b.Timeout))
 			logger.Info("backend registered", "name", b.Name, "type", b.Type, "url", b.URL)
+		case "commandcode":
+			key := ""
+			if b.APIKeyEnv != "" {
+				key = os.Getenv(b.APIKeyEnv)
+			}
+			if key == "" {
+				key = os.Getenv("INFERENCIA_COMMANDCODE_KEY")
+			}
+			if key == "" {
+				logger.Warn("skipping commandcode backend: no API key (set INFERENCIA_COMMANDCODE_KEY or api_key_env)", "name", b.Name)
+				continue
+			}
+			baseURL := b.URL
+			if baseURL == "" {
+				baseURL = "https://api.commandcode.ai/provider/v1"
+			}
+			reg.Register(backend.NewCommandCode(b.Name, baseURL, key, healthTimeout, b.Timeout))
+			logger.Info("backend registered", "name", b.Name, "type", b.Type, "url", baseURL)
 		case "ollama":
 			reg.Register(backend.NewOllama(b.Name, b.URL, healthTimeout, b.Timeout))
 			logger.Info("backend registered", "name", b.Name, "type", b.Type, "url", b.URL)
@@ -67,8 +89,8 @@ func main() {
 	for _, t := range cfg.TTSBackends {
 		ttsBackend := backend.NewTTSHTTP(t.Name, t.URL, t.Timeout)
 		ttsRouter.Register(router.BackendInfo{
-			Name:       t.Name,
-			TTSBackend: ttsBackend,
+			Name:         t.Name,
+			TTSBackend:   ttsBackend,
 			Capabilities: []router.Capability{router.CapTTS},
 			Models: []router.ModelInfo{
 				{ID: t.Name, Kind: router.CapTTS},
@@ -77,36 +99,34 @@ func main() {
 		logger.Info("tts backend registered", "name", t.Name, "url", t.URL)
 	}
 
+	// Decision engines (System One): Laya (local) and Jev (hosted) share one protocol.
+	var decisionClients []*decision.Client
+	for _, d := range cfg.Decisions {
+		key := ""
+		if d.APIKeyEnv != "" {
+			key = os.Getenv(d.APIKeyEnv)
+			if key == "" {
+				logger.Warn("skipping decision backend: API key env is empty", "name", d.Name, "env", d.APIKeyEnv)
+				continue
+			}
+		}
+		decisionClients = append(decisionClients, decision.New(d.Name, d.URL, key, d.Models...))
+		logger.Info("decision backend registered", "name", d.Name, "url", d.URL, "models", d.Models)
+	}
+	decisions := decision.NewSet(decisionClients...)
+
 	wd := watchdog.New(watchdog.Config{
 		Interval:       cfg.Watchdog.Interval,
 		FailThreshold:  cfg.Watchdog.FailThreshold,
 		RequestTimeout: cfg.Watchdog.RequestTimeout,
 	}, reg, ttsRouter, logger)
 
-	srv := server.New(cfg, reg, ks, wd, logger)
-
-	if ttsRouter.Len() > 0 {
-		rl := middleware.NewRateLimiter(cfg.RateLimit.RequestsPerSecond, cfg.RateLimit.Burst)
-		protected := func(h http.Handler) http.Handler {
-			return middleware.Chain(h,
-				middleware.RequestID(),
-				middleware.Recover(logger),
-				middleware.Metrics(),
-				middleware.Logging(logger),
-				middleware.Auth(ks),
-				middleware.RateLimit(rl),
-			)
-		}
-		server.RegisterTTSRoutes(srv, ttsRouter, wd, logger, protected)
-	}
-
-	// Register consolidated health status endpoint.
-	server.RegisterHealthStatusRoute(srv, reg, ttsRouter)
+	srv := server.New(cfg, reg, ttsRouter, decisions, ks, wd, logger)
 
 	wd.Start()
 
 	// Optional OpenTelemetry tracing: wrap handler so all requests are traced.
-	var tp *observability.TracerProvider
+	var tp *sdktrace.TracerProvider
 	if cfg.Observability.OTelEnabled {
 		var errOTel error
 		tp, errOTel = observability.NewTracerProvider(context.Background(), cfg.Observability.OTelEndpoint, cfg.Observability.OTelServiceName)
@@ -138,7 +158,9 @@ func main() {
 
 	wd.Stop()
 	if tp != nil {
-		_ = tp.Shutdown(ctx)
+		if err := tp.Shutdown(ctx); err != nil {
+			logger.Error("otel shutdown failed", "err", err)
+		}
 	}
 	server.Shutdown(ctx, srv, logger)
 	logger.Info("server stopped")
@@ -156,18 +178,5 @@ func newLogger(cfg config.Log) *slog.Logger {
 	default:
 		level = slog.LevelInfo
 	}
-
-	// Use cloud-friendly logger (GCP severity, optional resource) when configured.
-	if cfg.CloudFormat != "" {
-		return logging.NewLogger(os.Stdout, level, cfg.Format, cfg.CloudFormat)
-	}
-
-	opts := &slog.HandlerOptions{Level: level}
-	var handler slog.Handler
-	if cfg.Format == "text" {
-		handler = slog.NewTextHandler(os.Stdout, opts)
-	} else {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
-	}
-	return slog.New(handler)
+	return logging.NewLogger(os.Stdout, level, cfg.Format, cfg.CloudFormat)
 }

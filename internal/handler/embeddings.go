@@ -25,7 +25,9 @@ func Embeddings(reg *backend.Registry, hc backend.HealthChecker, logger *slog.Lo
 			return
 		}
 
-		b, err := reg.PrimaryHealthy(hc)
+		// Capability-aware selection: chat-only backends (commandcode) are
+		// skipped so embeddings land on a backend that actually serves them.
+		b, err := reg.PrimaryEmbedding(hc)
 		if err != nil {
 			apierror.Write(w, backendSelectError(reg, err))
 			return

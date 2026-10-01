@@ -23,6 +23,65 @@ backends:
     url: "http://localhost:11434"
     health_timeout: 5s    # health probes and GET /v1/models
     timeout: 300s         # chat/embeddings; streaming uses request context (no client timeout)
+  # - name: "commandcode"          # hosted provider (DeepSeek, Muse, Kimi, GLM, ...)
+  #   type: "commandcode"
+  #   # url defaults to https://api.commandcode.ai/provider/v1; override with INFERENCIA_COMMANDCODE_URL
+  #   api_key_env: "INFERENCIA_COMMANDCODE_KEY"   # never put the key in YAML
+  #   health_timeout: 10s
+  #   timeout: 300s
+
+# Decision engines (System One): typed decisions, not chat.
+# Laya runs locally (local-first); Jev is TypeSafe's hosted engine.
+# Both speak the same /v1/systemone protocol.
+decisions:
+  - name: "laya"                          # local, free, ~30ms after warm-up
+    url: "http://127.0.0.1:8000"
+    models: ["english", "multilingual"]
+    # api_key_env: "LAYA_API_KEY"         # only when laya-serve sets one
+  # - name: "jev"                         # hosted; needs an API key
+  #   url: "https://api.typesafe.ai"
+  #   api_key_env: "TYPESAFE_API_KEY"
+  #   models: ["jev-latest"]
+
+# Task-aware routing: virtual role models advertised in GET /v1/models.
+# A harness requests "inferencia-planner" and the router forwards the first
+# role model to the role backend. Unknown models fall back to default_role.
+routing:
+  default_role: "inferencia-worker"
+  roles:
+    inferencia-planner:
+      backend: "commandcode"
+      models: ["meta/muse-spark-1.3-contributor"]
+    inferencia-worker:
+      backend: "commandcode"
+      models: ["deepseek/deepseek-v4.1-flash"]
+    inferencia-fast:
+      backend: "ollama"
+      models: ["qwen3.5:0.8b"]
+    inferencia-auto:
+      backend: "commandcode"
+      models: ["deepseek/deepseek-v4.1-flash"]  # static fallback for auto
+  # Decision-powered auto: requests for inferencia-auto ask the decision
+  # engine which role should handle them, falling back to default_role.
+  # Policy variants: "auto:quality", "auto:economy", "auto:free" (bare "auto"
+  # is balanced). Built-ins: free never spends paid credits; economy holds a
+  # higher confidence bar; quality falls back to the strongest role.
+  auto:
+    decision: "laya"
+    question: "Which model tier should handle this request?"
+    min_confidence: 0.0 # >0 forwards an abstention gate; abstaining falls back
+    criteria:
+      planner: "complex multi-step planning, architecture, or deep reasoning"
+      worker: "routine coding, edits, tests, or analysis"
+      fast: "trivial lookups, short answers, or formatting"
+    # policies:
+    #   quality:
+    #     fallback: "inferencia-planner"
+    #   economy:
+    #     min_confidence: 0.7
+    #     fallback: "inferencia-fast"
+    #   free:
+    #     local_only: true # ollama/mlx backends only; implied by auto:free
 
 # TTS backends (optional). Each is an HTTP server exposing OpenAI-compatible
 # /v1/audio/speech and /v1/models endpoints.

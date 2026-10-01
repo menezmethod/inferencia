@@ -13,9 +13,9 @@ import (
 
 // ServiceStatus represents the health of a single backend service.
 type ServiceStatus struct {
-	Status   string       `json:"status"`             // "healthy" or "unhealthy"
-	Error    string       `json:"error,omitempty"`    // error message if unhealthy
-	Models   []ModelBrief `json:"models,omitempty"`   // available models/voices
+	Status string       `json:"status"`           // "healthy" or "unhealthy"
+	Error  string       `json:"error,omitempty"`  // error message if unhealthy
+	Models []ModelBrief `json:"models,omitempty"` // available models/voices
 }
 
 // ModelBrief is a lightweight summary of a model or voice offered by a backend.
@@ -59,6 +59,17 @@ func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFu
 			ByType: make(map[string]int),
 		}
 
+		add := func(name string, s ServiceStatus) {
+			services[name] = s
+			summary.Total++
+			if s.Status == "healthy" {
+				summary.Healthy++
+			} else {
+				summary.Unhealthy++
+				overall = "degraded"
+			}
+		}
+
 		// Check chat/embed backends (Ollama, MLX).
 		for _, b := range reg.All() {
 			s := ServiceStatus{Status: "healthy"}
@@ -66,7 +77,6 @@ func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFu
 			if err := b.Health(r.Context()); err != nil {
 				s.Status = "unhealthy"
 				s.Error = err.Error()
-				overall = "degraded"
 			} else {
 				// Fetch model inventory on healthy backends.
 				models, listErr := b.ListModels(r.Context())
@@ -83,13 +93,7 @@ func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFu
 				}
 			}
 
-			services[b.Name()] = s
-			summary.Total++
-			if s.Status == "healthy" {
-				summary.Healthy++
-			} else {
-				summary.Unhealthy++
-			}
+			add(b.Name(), s)
 			summary.ByType["chat"]++
 		}
 
@@ -105,7 +109,6 @@ func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFu
 				if err := info.TTSBackend.Health(r.Context()); err != nil {
 					s.Status = "unhealthy"
 					s.Error = err.Error()
-					overall = "degraded"
 				} else {
 					// Fetch voice inventory on healthy TTS backends.
 					voices, voicesErr := info.TTSBackend.Voices(r.Context())
@@ -121,13 +124,7 @@ func HealthStatus(reg *backend.Registry, ttsReg *router.Registry) http.HandlerFu
 					}
 				}
 
-				services[info.Name] = s
-				summary.Total++
-				if s.Status == "healthy" {
-					summary.Healthy++
-				} else {
-					summary.Unhealthy++
-				}
+				add(info.Name, s)
 				summary.ByType["tts"]++
 			}
 		}

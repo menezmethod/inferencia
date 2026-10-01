@@ -6,7 +6,7 @@ A lightweight, secure AI gateway that exposes local LLM and TTS servers to the i
 [![Go Version](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go)](https://go.dev)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-Run models on your own hardware. Access them from anywhere. Supports Ollama, LLaMA.cpp, and Kokoro TTS backends with smart routing, observability, and Coolify deployment.
+Run models on your own hardware. Access them from anywhere. Supports Ollama, LLaMA.cpp, Kokoro TTS, and hosted OpenAI-compatible providers (e.g. Command Code) with task-aware routing, observability, and Coolify deployment.
 
 ## 🚀 Quick Start
 
@@ -31,11 +31,14 @@ docker compose up -d
 
 ## 🏗️ Architecture
 
-Inferencia is a Go HTTP server that acts as a universal AI gateway, routing requests to configured LLM (Ollama, LLaMA.cpp) and TTS (Kokoro) backends. It exposes an OpenAI-compatible `/v1/chat/completions` endpoint plus custom endpoints for TTS, health monitoring, and model inventory. Smart routing selects the optimal backend per request kind (chat vs. TTS) with configurable fallback chains. The server includes Prometheus metrics, structured logging with Loki, OpenTelemetry tracing, and a comprehensive health check system.
+Inferencia is a Go HTTP server that acts as a universal AI gateway, routing requests to configured LLM (Ollama, LLaMA.cpp, hosted providers) and TTS (Kokoro) backends. It exposes an OpenAI-compatible `/v1/chat/completions` endpoint plus custom endpoints for TTS, health monitoring, and model inventory. Smart routing selects the optimal backend per request kind (chat vs. TTS) with configurable fallback chains, and task-aware routing maps virtual role models (`inferencia-planner`, `inferencia-worker`) onto a planner/worker model split. The server includes Prometheus metrics, structured logging with Loki, OpenTelemetry tracing, and a comprehensive health check system.
 
 ### Key Components
 
-- **Smart Router** — Per-kind backend interfaces (LLM vs TTS) with configurable fallback chains
+- **Smart Router** — Per-kind backend interfaces (LLM vs TTS) with load-balanced selection and configurable fallback chains
+- **Task-aware routing** — Virtual role models map planner/worker roles to concrete upstream models per harness request
+- **Decision engines** — TypeSafe Jev (hosted) and Laya (local, open source) System One models answer typed questions at `POST /v1/systemone` and pick the tier for `inferencia-auto` requests
+- **Hosted providers** — Command Code (DeepSeek, Muse, Kimi, GLM) and any OpenAI-compatible endpoint alongside local backends
 - **Health System** — Comprehensive `/health` endpoint with model/voice inventory and per-service breakdown
 - **Observability** — Prometheus metrics, Grafana dashboards, Loki log aggregation, OpenTelemetry tracing
 - **OpenAPI** — Full OpenAPI 3.1 spec with Swagger UI

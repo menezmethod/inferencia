@@ -2,8 +2,9 @@
 // and provides a registry for managing multiple backends.
 //
 // Each backend adapter translates between the OpenAI-compatible API
-// format and the backend's native protocol. Backends that already
-// speak OpenAI format (like MLX) need minimal translation.
+// format and the backend's native protocol. Ollama and MLX both speak
+// OpenAI-compatible HTTP and share one adapter; CommandCode is a hosted
+// OpenAI-compatible provider.
 package backend
 
 import (
@@ -32,29 +33,16 @@ type Probe interface {
 	Health(ctx context.Context) error
 }
 
-// ChatBackend handles chat completion requests (both streaming and non-streaming)
-// and model listing.
-type ChatBackend interface {
-	Probe
-
-	// ChatCompletion sends a non-streaming chat completion request.
-	ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error)
-
-	// ChatCompletionStream sends a streaming chat completion request.
-	// The send function is called for each SSE chunk. Returning an error
-	// from send cancels the stream.
-	ChatCompletionStream(ctx context.Context, req ChatRequest, send StreamFunc) error
-
-	// ListModels returns the available models from this backend.
-	ListModels(ctx context.Context) (*ModelsResponse, error)
-}
-
 // EmbedBackend handles embedding generation requests.
 type EmbedBackend interface {
 	Probe
 
 	// CreateEmbedding generates embeddings for the given input.
 	CreateEmbedding(ctx context.Context, req EmbedRequest) (*EmbedResponse, error)
+
+	// EmbeddingsSupported reports whether this backend exposes an
+	// embeddings route. Chat-only providers return false.
+	EmbeddingsSupported() bool
 }
 
 // TTSBackend handles text-to-speech synthesis and voice listing.
@@ -68,8 +56,7 @@ type TTSBackend interface {
 	Voices(ctx context.Context) ([]Voice, error)
 }
 
-// Backend is the legacy composite interface for backward compatibility.
-// It combines ChatBackend and EmbedBackend.
+// Backend is the composite interface every chat/embed adapter implements.
 type Backend interface {
 	// Chat
 	ChatCompletion(ctx context.Context, req ChatRequest) (*ChatResponse, error)
@@ -145,6 +132,26 @@ func (r *Registry) PrimaryName() string {
 // PrimaryHealthy returns a healthy backend using least-connections load balancing
 // across all healthy backends. When hc is nil, all backends are considered healthy.
 func (r *Registry) PrimaryHealthy(hc HealthChecker) (Backend, error) {
+	return r.selectHealthy(hc, nil)
+}
+
+// PrimaryEmbedding returns a healthy backend that supports embeddings, using
+// least-connections load balancing. Callers must ReleaseBackend when done.
+// The list endpoint never routes here: chat-only providers (commandcode)
+// report ErrEmbeddingsUnsupported and are skipped.
+func (r *Registry) PrimaryEmbedding(hc HealthChecker) (Backend, error) {
+	return r.selectHealthy(hc, supportsEmbedding)
+}
+
+func supportsEmbedding(b Backend) bool {
+	e, ok := b.(EmbedBackend)
+	if !ok {
+		return false
+	}
+	return e.EmbeddingsSupported()
+}
+
+func (r *Registry) selectHealthy(hc HealthChecker, eligible func(Backend) bool) (Backend, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -152,12 +159,17 @@ func (r *Registry) PrimaryHealthy(hc HealthChecker) (Backend, error) {
 		return nil, ErrBackendNotFound
 	}
 
-	healthy := r.healthyOrderLocked(hc)
-	if len(healthy) == 0 {
+	var names []string
+	for _, name := range r.healthyOrderLocked(hc) {
+		if eligible == nil || eligible(r.backends[name]) {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
 		return nil, ErrNoHealthyBackend
 	}
 
-	name := r.lb.Select(healthy)
+	name := r.lb.Select(names)
 	r.lb.Acquire(name)
 	return r.backends[name], nil
 }

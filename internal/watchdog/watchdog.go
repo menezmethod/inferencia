@@ -20,15 +20,6 @@ type Config struct {
 	RequestTimeout time.Duration // per-probe HTTP timeout (default 5s)
 }
 
-// DefaultConfig returns production-grade defaults.
-func DefaultConfig() Config {
-	return Config{
-		Interval:       30 * time.Second,
-		FailThreshold:  3,
-		RequestTimeout: 5 * time.Second,
-	}
-}
-
 // backendState tracks consecutive failures for one backend.
 type backendState struct {
 	failures int

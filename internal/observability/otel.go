@@ -16,15 +16,11 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.28.0"
 )
 
-// TracerProvider holds the SDK TracerProvider for shutdown.
-type TracerProvider struct {
-	provider *sdktrace.TracerProvider
-}
-
 // NewTracerProvider creates and sets a global TracerProvider that exports
 // spans via OTLP HTTP to the given endpoint (e.g. http://localhost:4318 or https://otel.example.com).
 // TLS is used when the endpoint URL scheme is https; http uses insecure transport (local/dev).
-func NewTracerProvider(ctx context.Context, endpoint, serviceName string) (*TracerProvider, error) {
+// Shutdown the returned provider to flush spans.
+func NewTracerProvider(ctx context.Context, endpoint, serviceName string) (*sdktrace.TracerProvider, error) {
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {
 		endpoint = "http://localhost:4318"
@@ -56,15 +52,7 @@ func NewTracerProvider(ctx context.Context, endpoint, serviceName string) (*Trac
 		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(provider)
-	return &TracerProvider{provider: provider}, nil
-}
-
-// Shutdown flushes and stops the TracerProvider.
-func (tp *TracerProvider) Shutdown(ctx context.Context) error {
-	if tp == nil || tp.provider == nil {
-		return nil
-	}
-	return tp.provider.Shutdown(ctx)
+	return provider, nil
 }
 
 // HTTPHandler wraps the given handler with OpenTelemetry HTTP tracing.

@@ -16,6 +16,7 @@ func discardLogger() *slog.Logger {
 
 // mockBackend implements backend.Backend for testing.
 type mockBackend struct {
+	name        string
 	chatResp    *backend.ChatResponse
 	chatErr     error
 	lastChatReq backend.ChatRequest
@@ -26,7 +27,12 @@ type mockBackend struct {
 	healthErr   error
 }
 
-func (m *mockBackend) Name() string { return "mock" }
+func (m *mockBackend) Name() string {
+	if m.name == "" {
+		return "mock"
+	}
+	return m.name
+}
 
 func (m *mockBackend) Health(context.Context) error { return m.healthErr }
 
@@ -50,6 +56,20 @@ func (m *mockBackend) ListModels(context.Context) (*backend.ModelsResponse, erro
 func (m *mockBackend) CreateEmbedding(_ context.Context, _ backend.EmbedRequest) (*backend.EmbedResponse, error) {
 	return m.embedResp, m.embedErr
 }
+
+func (m *mockBackend) EmbeddingsSupported() bool { return true }
+
+// mockEmbedUnsupportedBackend simulates a chat-only provider (e.g. CommandCode)
+// whose embeddings route does not exist.
+type mockEmbedUnsupportedBackend struct {
+	mockBackend
+}
+
+func (m *mockEmbedUnsupportedBackend) CreateEmbedding(_ context.Context, _ backend.EmbedRequest) (*backend.EmbedResponse, error) {
+	return nil, backend.ErrEmbeddingsUnsupported
+}
+
+func (m *mockEmbedUnsupportedBackend) EmbeddingsSupported() bool { return false }
 
 type stubHealthChecker struct {
 	healthy map[string]bool
@@ -94,10 +114,10 @@ func (m *mockTTSBackend) Voices(context.Context) ([]backend.Voice, error) {
 func newTestTTSRegistry(mock *mockTTSBackend) *router.Registry {
 	r := router.NewRegistry()
 	r.Register(router.BackendInfo{
-		Name:       mock.name,
-		TTSBackend: mock,
+		Name:         mock.name,
+		TTSBackend:   mock,
 		Capabilities: []router.Capability{router.CapTTS},
-		Models:     []router.ModelInfo{{ID: mock.name, Kind: router.CapTTS}},
+		Models:       []router.ModelInfo{{ID: mock.name, Kind: router.CapTTS}},
 	})
 	return r
 }

@@ -6,14 +6,8 @@ import (
 	"github.com/menezmethod/inferencia/internal/backend"
 )
 
-// SelectBackend selects the best backend for the given capability and optional model name.
-// If a model is specified, it prefers backends that advertise that model.
-// If no model is specified, it returns the first backend that supports the capability.
-func (r *Registry) SelectBackend(kind Capability, model string) (BackendInfo, error) {
-	return r.selectBackend(kind, model, nil)
-}
-
-// SelectHealthyBackend skips backends the health checker marks degraded.
+// SelectHealthyBackend selects the best backend for a capability and optional
+// model name, skipping backends the health checker marks degraded.
 func (r *Registry) SelectHealthyBackend(kind Capability, model string, hc backend.HealthChecker) (BackendInfo, error) {
 	return r.selectBackend(kind, model, hc)
 }

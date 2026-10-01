@@ -222,6 +222,167 @@ var _ = Describe("Validation", func() {
 	})
 })
 
+var _ = Describe("Backend validation", func() {
+	When("backend type is unknown", func() {
+		It("returns an error", func() {
+			cfg := Defaults()
+			cfg.Backends[0].Type = "mystery"
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+
+	When("a commandcode backend omits URL", func() {
+		It("is valid because the default endpoint applies", func() {
+			cfg := Defaults()
+			cfg.Backends[0].Type = "commandcode"
+			cfg.Backends[0].URL = ""
+			Expect(validate(cfg)).NotTo(HaveOccurred())
+		})
+	})
+
+	When("a routing role has no models", func() {
+		It("returns an error", func() {
+			cfg := Defaults()
+			cfg.Routing.Roles = map[string]Role{"inferencia-worker": {Backend: "cc", Models: nil}}
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+
+	When("the default role is undefined", func() {
+		It("returns an error", func() {
+			cfg := Defaults()
+			cfg.Routing.DefaultRole = "inferencia-nope"
+			cfg.Routing.Roles = map[string]Role{"inferencia-worker": {Backend: "cc", Models: []string{"m"}}}
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+
+	When("routing roles are valid", func() {
+		It("loads from YAML including api_key_env", func() {
+			content := `
+server:
+  port: 8080
+backends:
+  - name: "cc"
+    type: "commandcode"
+    api_key_env: "INFERENCIA_COMMANDCODE_KEY"
+    timeout: 60s
+routing:
+  default_role: "inferencia-worker"
+  roles:
+    inferencia-worker:
+      backend: "cc"
+      models: ["deepseek/deepseek-v4.1-flash"]
+ratelimit:
+  requests_per_second: 10
+  burst: 20
+log:
+  level: "info"
+  format: "json"
+`
+			path := filepath.Join(GinkgoT().TempDir(), "config.yaml")
+			Expect(os.WriteFile(path, []byte(content), 0644)).NotTo(HaveOccurred())
+			cfg, err := Load(path)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cfg.Backends[0].Type).To(Equal("commandcode"))
+			Expect(cfg.Backends[0].APIKeyEnv).To(Equal("INFERENCIA_COMMANDCODE_KEY"))
+			Expect(cfg.Routing.DefaultRole).To(Equal("inferencia-worker"))
+			Expect(cfg.Routing.Roles["inferencia-worker"].Models).To(Equal([]string{"deepseek/deepseek-v4.1-flash"}))
+		})
+	})
+
+	When("INFERENCIA_ROUTING_DEFAULT_ROLE is set", func() {
+		It("overrides the file value", func() {
+			content := `
+server:
+  port: 8080
+backends:
+  - name: "cc"
+    type: "commandcode"
+    timeout: 60s
+routing:
+  default_role: "inferencia-worker"
+  roles:
+    inferencia-worker:
+      backend: "cc"
+      models: ["m"]
+    inferencia-planner:
+      backend: "cc"
+      models: ["p"]
+ratelimit:
+  requests_per_second: 10
+  burst: 20
+log:
+  level: "info"
+  format: "json"
+`
+			path := filepath.Join(GinkgoT().TempDir(), "config.yaml")
+			Expect(os.WriteFile(path, []byte(content), 0644)).NotTo(HaveOccurred())
+			_ = os.Setenv("INFERENCIA_ROUTING_DEFAULT_ROLE", "inferencia-planner")
+			defer func() { _ = os.Unsetenv("INFERENCIA_ROUTING_DEFAULT_ROLE") }()
+			cfg, err := Load(path)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cfg.Routing.DefaultRole).To(Equal("inferencia-planner"))
+		})
+	})
+
+	When("a decision engine is misconfigured", func() {
+		It("requires a name and url and rejects duplicates", func() {
+			cfg := Defaults()
+			cfg.Decisions = []Decision{{Name: "laya"}} // no url
+			Expect(validate(cfg)).To(HaveOccurred())
+
+			cfg = Defaults()
+			cfg.Decisions = []Decision{{Name: "laya", URL: "http://localhost:8000"}, {Name: "laya", URL: "http://x"}}
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+
+	When("routing.auto points at an undefined engine or role", func() {
+		It("returns an error", func() {
+			cfg := Defaults()
+			cfg.Routing.Auto = Auto{Decision: "nope"}
+			Expect(validate(cfg)).To(HaveOccurred())
+
+			cfg = Defaults()
+			cfg.Decisions = []Decision{{Name: "laya", URL: "http://localhost:8000"}}
+			cfg.Routing.Roles = map[string]Role{"inferencia-worker": {Backend: "ollama", Models: []string{"m"}}}
+			cfg.Routing.Auto = Auto{Decision: "laya", Criteria: map[string]string{"ghost": "no such role"}}
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+
+	When("routing.auto is valid", func() {
+		It("accepts both bare and prefixed criteria keys", func() {
+			cfg := Defaults()
+			cfg.Decisions = []Decision{{Name: "laya", URL: "http://localhost:8000", Models: []string{"laya"}}}
+			cfg.Routing.Roles = map[string]Role{"inferencia-worker": {Backend: "ollama", Models: []string{"m"}}}
+			cfg.Routing.Auto = Auto{
+				Decision: "laya",
+				Criteria: map[string]string{"worker": "routine", "inferencia-worker": "also routine"},
+			}
+			Expect(validate(cfg)).NotTo(HaveOccurred())
+		})
+	})
+
+	When("auto policies are misconfigured", func() {
+		It("rejects unknown policy names and undefined fallback roles", func() {
+			cfg := Defaults()
+			cfg.Decisions = []Decision{{Name: "laya", URL: "http://localhost:8000"}}
+			cfg.Routing.Roles = map[string]Role{"inferencia-worker": {Backend: "ollama", Models: []string{"m"}}}
+
+			cfg.Routing.Auto = Auto{Decision: "laya", Policies: map[string]AutoPolicy{"plaid": {}}}
+			Expect(validate(cfg)).To(HaveOccurred())
+
+			cfg.Routing.Auto = Auto{Decision: "laya", Policies: map[string]AutoPolicy{"free": {Fallback: "ghost"}}}
+			Expect(validate(cfg)).To(HaveOccurred())
+
+			cfg.Routing.Auto = Auto{Decision: "laya", Policies: map[string]AutoPolicy{"economy": {Criteria: map[string]string{"ghost": "no"}}}}
+			Expect(validate(cfg)).To(HaveOccurred())
+		})
+	})
+})
+
 var _ = Describe("Server Addr", func() {
 	It("returns host:port", func() {
 		s := Server{Host: "0.0.0.0", Port: 3000}

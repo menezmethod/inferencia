@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 )
 
@@ -132,20 +131,4 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, data, 0644)
-}
-
-// GetIntegrationPort returns the port used by the integration server (for Postman/Newman env).
-func GetIntegrationPort() string { return integrationPort }
-
-// GetIntegrationBaseURL returns the default base URL when server is running (host:port, no scheme).
-func GetIntegrationBaseURL() string { return "127.0.0.1:" + integrationPort }
-
-// IsRunning returns true if the integration server responds on the given baseURL.
-func IsRunning(baseURL string) bool {
-	resp, err := http.Get(strings.TrimSuffix(baseURL, "/") + healthPath)
-	if err != nil {
-		return false
-	}
-	_ = resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
 }

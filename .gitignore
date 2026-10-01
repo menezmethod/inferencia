@@ -22,6 +22,7 @@ keys.txt
 .vscode/
 .claude/
 .cursor/
+.commandcode/
 *.swp
 *~
 

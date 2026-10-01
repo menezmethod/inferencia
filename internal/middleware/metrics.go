@@ -44,14 +44,6 @@ var (
 		Help:      "Whether each backend is healthy (1) or down (0).",
 	}, []string{"backend"})
 
-	BackendRequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: "inferencia",
-		Subsystem: "backend",
-		Name:      "request_duration_seconds",
-		Help:      "Backend request latency in seconds.",
-		Buckets:   []float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120},
-	}, []string{"backend", "operation"})
-
 	RateLimitRejections = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "inferencia",
 		Name:      "ratelimit_rejections_total",

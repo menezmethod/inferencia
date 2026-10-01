@@ -4,9 +4,9 @@ This file gives AI agents (Cursor, Codex, etc.) accurate context about the app. 
 
 ## What inferencia is
 
-- **OpenAI-compatible API gateway** for local LLM and TTS servers. It proxies chat completions, models, embeddings, and text-to-speech to backends (Ollama, MLX, Kokoro TTS) and adds auth, rate limiting, observability, and a background watchdog.
+- **OpenAI-compatible API gateway** for local LLM and TTS servers. It proxies chat completions, models, embeddings, and text-to-speech to backends (Ollama, MLX, Kokoro TTS, Command Code hosted provider) and adds auth, rate limiting, observability, and a background watchdog.
 - **Stack**: Go 1.26, stdlib `net/http`, `slog`, Prometheus client, optional OpenTelemetry. One main external dep: `gopkg.in/yaml.v3`.
-- **Default chat model**: `qwen3.6:35b-a3b-coding-bf16` via Ollama. Default TTS model: `kokoro`.
+- **Default chat model**: `qwen3.6:35b-a3b-coding-bf16` via Ollama (or `routing.default_role` when configured). Default TTS model: `kokoro`.
 
 ## API surface (match OpenAPI and handlers)
 
@@ -20,9 +20,10 @@ This file gives AI agents (Cursor, Codex, etc.) accurate context about the app. 
 - `GET /openapi.yaml` — OpenAPI 3.1 spec.
 
 **Bearer auth required:**
-- `POST /v1/chat/completions` — Chat (streaming and non-streaming, tool calling).
-- `GET /v1/models` — List models from primary backend.
-- `POST /v1/embeddings` — Embeddings.
+- `POST /v1/chat/completions` — Chat (streaming and non-streaming, tool calling). `model` may be a virtual role (`inferencia-planner`, `inferencia-worker`, ...) or `backend/model`; responses carry `X-Routed-Backend`, `X-Routed-Model`, `X-Routed-Role`, and `X-Routed-Fallback` headers.
+- `GET /v1/models` — Aggregated inventory: virtual role models plus every healthy backend's models namespaced `backend/model`. Advertised IDs round-trip through chat.
+- `POST /v1/systemone` — Typed System One decisions (Jev, Laya). Relays `state` + typed `questions` to a configured decision engine; select with a `engine/model` prefix. Response header `X-Decision-Backend` names the engine.
+- `POST /v1/embeddings` — Embeddings (chat-only backends are skipped).
 - `POST /v1/audio/speech` — Text-to-speech synthesis. Routes to TTS backends (Kokoro, Chatterbox, etc.).
 
 Auth: `Authorization: Bearer <key>`. Keys from file or `INFERENCIA_API_KEYS` env. No key → 401.
@@ -31,6 +32,9 @@ Auth: `Authorization: Bearer <key>`. Keys from file or `INFERENCIA_API_KEYS` env
 
 - Config: YAML (optional) + env overrides. Prefix `INFERENCIA_`: e.g. `INFERENCIA_PORT`, `INFERENCIA_BACKEND_URL`, `INFERENCIA_API_KEYS`, `INFERENCIA_LOG_LEVEL`, `INFERENCIA_OTEL_ENABLED`, `INFERENCIA_OTEL_ENDPOINT`.
 - Backend URL: first backend URL can be overridden with `INFERENCIA_BACKEND_URL` (e.g. `http://192.168.0.x:11434` for Ollama on LAN).
+- Command Code hosted provider: `INFERENCIA_COMMANDCODE_KEY` (required for the backend; skipped with a warning when unset), `INFERENCIA_COMMANDCODE_URL` (default `https://api.commandcode.ai/provider/v1`).
+- Task-aware routing: `routing.roles` maps virtual models (`inferencia-planner`, `inferencia-worker`) to backend + upstream model(s); `routing.default_role` handles unknown models and can be overridden with `INFERENCIA_ROUTING_DEFAULT_ROLE`.
+- Decision engines: `decisions:` configures System One engines (TypeSafe Jev, Laya) for `POST /v1/systemone` and decision-powered auto routing (`routing.auto`). Jev needs `TYPESAFE_API_KEY`; Laya runs locally and needs no key. Auto policies: `auto`, `auto:quality`, `auto:balanced`, `auto:economy`, `auto:free` (north star: `docs/ADAPTIVE_RUNTIME.md`).
 - TTS backends: `INFERENCIA_KOKORO_URL`, `INFERENCIA_CHATTERBOX_URL`, `INFERENCIA_MISOTTS_URL`, `INFERENCIA_ELEVENLABS_URL`.
 - Watchdog: `INFERENCIA_WATCHDOG_INTERVAL` (default `30s`), `INFERENCIA_WATCHDOG_FAIL_THRESHOLD` (default `3`), `INFERENCIA_WATCHDOG_TIMEOUT` (default `5s`).
 - No config file in Docker image; use env only (see `env.coolify.example`).
@@ -42,8 +46,10 @@ Auth: `Authorization: Bearer <key>`. Keys from file or `INFERENCIA_API_KEYS` env
 - `internal/auth` — KeyStore (file + env); Validate(key).
 - `internal/handler` — HTTP handlers (health, ready, status, version, chat, models, embeddings, audio, docs, OpenAPI).
 - `internal/server` — Mux, middleware chain (RequestID, Recover, Metrics, Logging, Auth, RateLimit).
-- `internal/backend` — Registry, MLX/Ollama clients, TTS HTTP adapter.
+- `internal/backend` — Registry (health-aware selection, embeddings-capable selection), MLX/Ollama/Command Code clients, TTS HTTP adapter.
 - `internal/router` — Capability-aware backend routing (chat, embed, TTS) with scoring.
+- `internal/routing` — Chat model resolution: virtual roles, `backend/model` namespaces, unknown-model fallback.
+- `internal/decision` — System One decision clients (Jev, Laya) over the shared `/v1/systemone` protocol.
 - `internal/watchdog` — Background health-check loop; Prometheus gauges, degraded marking, auto-recovery.
 - `internal/middleware` — Rate limit, auth, logging, metrics (HTTP, TTS, routing, backend health), recover.
 - `internal/openapi` — Embedded spec; copied from `docs/openapi.yaml` at build.

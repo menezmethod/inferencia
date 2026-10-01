@@ -11,15 +11,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 )
 
 // ErrInvalidKey is returned when an API key is not recognized.
 var ErrInvalidKey = errors.New("invalid api key")
 
 // KeyStore validates API keys against a set of known keys.
+// Keys are immutable after construction, so reads need no locking.
 type KeyStore struct {
-	mu   sync.RWMutex
 	keys map[string]struct{}
 }
 
@@ -60,9 +59,6 @@ func NewKeyStore(path string) (*KeyStore, error) {
 
 // Validate checks whether the given key is authorized.
 func (ks *KeyStore) Validate(key string) error {
-	ks.mu.RLock()
-	defer ks.mu.RUnlock()
-
 	if _, ok := ks.keys[key]; !ok {
 		return ErrInvalidKey
 	}
@@ -71,8 +67,6 @@ func (ks *KeyStore) Validate(key string) error {
 
 // Count returns the number of loaded keys.
 func (ks *KeyStore) Count() int {
-	ks.mu.RLock()
-	defer ks.mu.RUnlock()
 	return len(ks.keys)
 }
 

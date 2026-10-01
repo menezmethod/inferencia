@@ -32,6 +32,8 @@ tags:
     description: Create chat completions with optional streaming and tool calling.
   - name: Models
     description: List available models from the inference backend.
+  - name: Decisions
+    description: Typed System One decisions (Jev, Laya) via POST /v1/systemone.
   - name: Embeddings
     description: Generate vector embeddings for text input.
   - name: Audio
@@ -309,7 +311,17 @@ paths:
       operationId: listModels
       tags: [Models]
       summary: List models
-      description: Returns all models available from the primary backend.
+      description: |
+        Returns virtual role models (`inferencia-*`, when task-aware routing is
+        configured), configured decision engines (`laya`, `jev`, and their
+        models as `engine/model`), plus the live model inventory of every
+        healthy chat backend.
+
+        Upstream model IDs are namespaced `backend/model`, even when the
+        upstream ID itself contains a slash (e.g.
+        `commandcode/deepseek/deepseek-v4.1-flash`). Every advertised ID
+        round-trips: send it back verbatim as `model` in
+        `POST /v1/chat/completions`.
       security:
         - bearerAuth: []
       responses:
@@ -327,14 +339,22 @@ paths:
               example:
                 object: list
                 data:
-                  - id: gemma4:e4b
+                  - id: inferencia-planner
+                    object: model
+                    created: 0
+                    owned_by: inferencia
+                  - id: inferencia-worker
+                    object: model
+                    created: 0
+                    owned_by: inferencia
+                  - id: ollama/gemma4:e4b
                     object: model
                     created: 0
                     owned_by: ollama
-                  - id: nomic-embed-text:latest
+                  - id: commandcode/deepseek/deepseek-v4.1-flash
                     object: model
                     created: 0
-                    owned_by: ollama
+                    owned_by: commandcode
         "401":
           $ref: "#/components/responses/Unauthorized"
         "429":
@@ -355,6 +375,17 @@ paths:
         - **Tool calling** — Supply a `tools` array to enable function calling.
           The model may respond with `tool_calls` in the assistant message.
         - **Structured output** — Use `response_format` for constrained generation.
+        - **Task-aware routing** — `model` may be a virtual role
+          (`inferencia-planner`, `inferencia-worker`, `inferencia-auto`,
+          `inferencia-fast`) or a `backend/model` ID advertised by
+          `GET /v1/models`. Unknown models fall back to the configured default
+          role (or the primary backend) and are reported via `X-Routed-*`
+          response headers rather than an error.
+        - **Auto policies** — `auto` (balanced), `auto:quality`, `auto:economy`,
+          and `auto:free` ask the configured decision engine (Jev/Laya) to pick
+          the tier. The choice, confidence, and a machine-readable reason code
+          are returned in `X-Routed-Auto` and `X-Routed-Reason`; `auto:free`
+          never routes to a paid backend.
       security:
         - bearerAuth: []
       requestBody:
@@ -408,6 +439,33 @@ paths:
               $ref: "#/components/headers/X-RateLimit-Limit"
             X-RateLimit-Remaining:
               $ref: "#/components/headers/X-RateLimit-Remaining"
+            X-Routed-Backend:
+              description: Name of the backend that served the request.
+              schema:
+                type: string
+            X-Routed-Model:
+              description: Upstream model ID the request was rewritten to.
+              schema:
+                type: string
+            X-Routed-Role:
+              description: Virtual role that resolved the request (when one matched).
+              schema:
+                type: string
+            X-Routed-Fallback:
+              description: |
+                Present when the request was not served by the exact model it
+                named. Value is the fallback role (`worker`) or `default` when
+                an unknown model fell back to the primary backend.
+              schema:
+                type: string
+            X-Routed-Reason:
+              description: |
+                Machine-readable reason code for auto decisions
+                (`AUTO_TIER_SELECTED`, `AUTO_POLICY_LOCAL_ONLY`,
+                `AUTO_LOW_CONFIDENCE_FALLBACK`, `AUTO_DECISION_UNAVAILABLE`,
+                `AUTO_STATIC_FALLBACK`).
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -416,7 +474,7 @@ paths:
                 id: chatcmpl-abc123
                 object: chat.completion
                 created: 1677858242
-                model: gemma4:e4b
+                model: ollama/gemma4:e4b
                 choices:
                   - index: 0
                     message:
@@ -431,6 +489,91 @@ paths:
               schema:
                 type: string
                 description: "SSE stream. Each event is data: {json}\n\n, terminated by data: [DONE]\n\n."
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/BackendUnavailable"
+
+  /v1/systemone:
+    post:
+      operationId: createSystemOneDecision
+      tags: [Decisions]
+      summary: Typed decisions (Jev / Laya)
+      description: |
+        Relays a System One request — a `state` plus typed `questions`
+        (`choice`, `score`, `noul`) — to a configured decision engine and returns
+        its typed answers with probabilities and confidence. TypeSafe **Jev** and
+        local **Laya** share this protocol; select an engine by prefixing `model`
+        with its configured name (`laya/laya`, `jev/jev-latest`), or let the first
+        configured engine (local-first) handle it. Upstream answers are relayed
+        verbatim; the response header `X-Decision-Backend` names the engine used.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state, questions]
+              properties:
+                state:
+                  description: The text or JSON document to make decisions about.
+                model:
+                  type: string
+                  description: Optional engine/model selector, e.g. `laya/laya` or `jev/jev-latest`.
+                questions:
+                  type: object
+                  description: Typed questions keyed by answer name (choice, score, noul).
+            example:
+              state: "Hi, we were billed twice for March. Please refund the duplicate today."
+              questions:
+                department:
+                  type: choice
+                  instructions: "Which department should handle this?"
+                  criteria:
+                    billing: "invoices, payments, refunds"
+                    technical: "bugs, outages, system errors"
+                    other: "everything else"
+                urgency:
+                  type: score
+                  instructions: "How urgent is this?"
+                  criteria: ["not urgent", "soon", "blocking"]
+      responses:
+        "200":
+          description: Typed answers, relayed from the decision engine.
+          headers:
+            X-Decision-Backend:
+              description: Configured engine that answered the request.
+              schema:
+                type: string
+            X-RateLimit-Limit:
+              $ref: "#/components/headers/X-RateLimit-Limit"
+            X-RateLimit-Remaining:
+              $ref: "#/components/headers/X-RateLimit-Remaining"
+          content:
+            application/json:
+              schema:
+                type: object
+              example:
+                model: laya
+                answers:
+                  department:
+                    type: choice
+                    choice: billing
+                    confidence: 0.93
+                    probabilities:
+                      billing: 0.93
+                      technical: 0.05
+                      other: 0.02
+                  urgency:
+                    type: score
+                    score: 2
+                    confidence: 0.88
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":

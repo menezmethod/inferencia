@@ -10,20 +10,6 @@ import (
 	"github.com/menezmethod/inferencia/internal/version"
 )
 
-// Health handles liveness checks. It always returns 200 if the server is running.
-// Response includes "version" so you can see which inferencia build is running.
-//
-//	GET /health
-func Health() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"status":  "ok",
-			"version": version.Version,
-		})
-	}
-}
-
 // Ready handles readiness checks. It returns 200 only if all backends are healthy.
 //
 //	GET /health/ready

@@ -22,10 +22,59 @@ type Config struct {
 	Auth          Auth          `yaml:"auth"`
 	Backends      []Backend     `yaml:"backends"`
 	TTSBackends   []TTSBackend  `yaml:"tts_backends"`
+	Decisions     []Decision    `yaml:"decisions"`
 	RateLimit     RateLimit     `yaml:"ratelimit"`
 	Log           Log           `yaml:"log"`
 	Observability Observability `yaml:"observability"`
 	Watchdog      Watchdog      `yaml:"watchdog"`
+	Routing       Routing       `yaml:"routing"`
+}
+
+// Decision configures a System One decision engine (TypeSafe Jev, Laya).
+// Both speak the same /v1/systemone protocol; url and API key are all that differ.
+type Decision struct {
+	Name      string   `yaml:"name"`
+	URL       string   `yaml:"url"`
+	APIKeyEnv string   `yaml:"api_key_env,omitempty"` // env var holding the bearer key (Jev requires one)
+	Models    []string `yaml:"models,omitempty"`      // advertised model IDs for discovery and routing
+}
+
+// Routing configures virtual role models for task-aware routing.
+type Routing struct {
+	DefaultRole string          `yaml:"default_role"`
+	Roles       map[string]Role `yaml:"roles"`
+	Auto        Auto            `yaml:"auto"`
+}
+
+// Auto configures decision-powered automatic tier selection. When set, a chat
+// request for the "auto" role asks the decision engine which configured role
+// should handle it (local-first: name the local Laya engine first).
+//
+// Policies are named variants over the same planner, selected with
+// "auto:quality", "auto:economy", "auto:free" (bare "auto" = balanced).
+type Auto struct {
+	Decision      string                `yaml:"decision"` // name of a decisions[] entry
+	Model         string                `yaml:"model,omitempty"`
+	Question      string                `yaml:"question,omitempty"`
+	Criteria      map[string]string     `yaml:"criteria,omitempty"`       // role -> when to use it
+	MinConfidence float64               `yaml:"min_confidence,omitempty"` // abstain below this confidence
+	Policies      map[string]AutoPolicy `yaml:"policies,omitempty"`       // quality | balanced | economy | free
+}
+
+// AutoPolicy biases the planner without changing the underlying mechanism:
+// different criteria, confidence floor, fallback role, or local-only constraint.
+type AutoPolicy struct {
+	Criteria      map[string]string `yaml:"criteria,omitempty"`
+	MinConfidence float64           `yaml:"min_confidence,omitempty"`
+	Fallback      string            `yaml:"fallback,omitempty"`
+	LocalOnly     bool              `yaml:"local_only,omitempty"` // free/local backends only (ollama, mlx)
+}
+
+// Role maps a virtual model name (e.g. inferencia-planner) to an ordered
+// list of concrete upstream model IDs plus the backend serving them.
+type Role struct {
+	Backend string   `yaml:"backend"`
+	Models  []string `yaml:"models"`
 }
 
 // Watchdog configures the background health-check loop.
@@ -51,10 +100,11 @@ type Auth struct {
 // Backend configures a single LLM backend.
 type Backend struct {
 	Name          string        `yaml:"name"`
-	Type          string        `yaml:"type"`
+	Type          string        `yaml:"type"` // ollama | mlx | commandcode
 	URL           string        `yaml:"url"`
-	Timeout       time.Duration `yaml:"timeout"`        // inference timeout (chat, embeddings); 0 disables client timeout
-	HealthTimeout time.Duration `yaml:"health_timeout"` // health probes and model listing
+	APIKeyEnv     string        `yaml:"api_key_env,omitempty"` // env var holding the upstream API key (commandcode)
+	Timeout       time.Duration `yaml:"timeout"`               // inference timeout (chat, embeddings); 0 disables client timeout
+	HealthTimeout time.Duration `yaml:"health_timeout"`        // health probes and model listing
 }
 
 // TTSBackend configures a single TTS backend.
@@ -203,39 +253,27 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("INFERENCIA_BACKEND_URL"); v != "" && len(cfg.Backends) > 0 {
 		cfg.Backends[0].URL = strings.TrimSpace(v)
 	}
+	if v := os.Getenv("INFERENCIA_ROUTING_DEFAULT_ROLE"); v != "" {
+		cfg.Routing.DefaultRole = strings.TrimSpace(v)
+	}
+	if v := os.Getenv("INFERENCIA_COMMANDCODE_URL"); v != "" {
+		for i := range cfg.Backends {
+			if cfg.Backends[i].Type == "commandcode" && cfg.Backends[i].URL == "" {
+				cfg.Backends[i].URL = strings.TrimSpace(v)
+			}
+		}
+	}
 
-	// TTS backend env vars.
-	if v := os.Getenv("INFERENCIA_KOKORO_URL"); v != "" {
-		if !ttsBackendExists(cfg.TTSBackends, "kokoro") {
+	// TTS backend env vars: one canonical name per hosted TTS server.
+	for env, name := range map[string]string{
+		"INFERENCIA_KOKORO_URL":     "kokoro",
+		"INFERENCIA_CHATTERBOX_URL": "chatterbox",
+		"INFERENCIA_MISOTTS_URL":    "misotts",
+		"INFERENCIA_ELEVENLABS_URL": "elevenlabs",
+	} {
+		if v := os.Getenv(env); v != "" && !ttsBackendExists(cfg.TTSBackends, name) {
 			cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
-				Name:    "kokoro",
-				URL:     strings.TrimSpace(v),
-				Timeout: 30 * time.Second,
-			})
-		}
-	}
-	if v := os.Getenv("INFERENCIA_CHATTERBOX_URL"); v != "" {
-		if !ttsBackendExists(cfg.TTSBackends, "chatterbox") {
-			cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
-				Name:    "chatterbox",
-				URL:     strings.TrimSpace(v),
-				Timeout: 30 * time.Second,
-			})
-		}
-	}
-	if v := os.Getenv("INFERENCIA_MISOTTS_URL"); v != "" {
-		if !ttsBackendExists(cfg.TTSBackends, "misotts") {
-			cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
-				Name:    "misotts",
-				URL:     strings.TrimSpace(v),
-				Timeout: 30 * time.Second,
-			})
-		}
-	}
-	if v := os.Getenv("INFERENCIA_ELEVENLABS_URL"); v != "" {
-		if !ttsBackendExists(cfg.TTSBackends, "elevenlabs") {
-			cfg.TTSBackends = append(cfg.TTSBackends, TTSBackend{
-				Name:    "elevenlabs",
+				Name:    name,
 				URL:     strings.TrimSpace(v),
 				Timeout: 30 * time.Second,
 			})
@@ -297,8 +335,64 @@ func validate(cfg Config) error {
 		if b.Type == "" {
 			errs = append(errs, fmt.Errorf("backends[%d].type is required", i))
 		}
-		if b.URL == "" {
+		switch b.Type {
+		case "ollama", "mlx", "commandcode":
+		default:
+			errs = append(errs, fmt.Errorf("backends[%d].type must be one of ollama, mlx, commandcode; got %q", i, b.Type))
+		}
+		if b.URL == "" && b.Type != "commandcode" {
 			errs = append(errs, fmt.Errorf("backends[%d].url is required", i))
+		}
+	}
+	if cfg.Routing.DefaultRole != "" {
+		role, ok := cfg.Routing.Roles[cfg.Routing.DefaultRole]
+		if !ok {
+			errs = append(errs, fmt.Errorf("routing.default_role %q is not defined in routing.roles", cfg.Routing.DefaultRole))
+		} else if len(role.Models) == 0 {
+			errs = append(errs, fmt.Errorf("routing.roles[%q].models must not be empty", cfg.Routing.DefaultRole))
+		}
+	}
+	for name, role := range cfg.Routing.Roles {
+		if len(role.Models) == 0 {
+			errs = append(errs, fmt.Errorf("routing.roles[%q].models must not be empty", name))
+		}
+	}
+	decisionNames := make(map[string]bool, len(cfg.Decisions))
+	for i, d := range cfg.Decisions {
+		if d.Name == "" {
+			errs = append(errs, fmt.Errorf("decisions[%d].name is required", i))
+		}
+		if d.URL == "" {
+			errs = append(errs, fmt.Errorf("decisions[%d].url is required", i))
+		}
+		if d.Name != "" {
+			if decisionNames[d.Name] {
+				errs = append(errs, fmt.Errorf("decisions[%d].name %q is duplicated", i, d.Name))
+			}
+			decisionNames[d.Name] = true
+		}
+	}
+	if cfg.Routing.Auto.Decision != "" {
+		if !decisionNames[cfg.Routing.Auto.Decision] {
+			errs = append(errs, fmt.Errorf("routing.auto.decision %q is not defined in decisions", cfg.Routing.Auto.Decision))
+		}
+		for tier := range cfg.Routing.Auto.Criteria {
+			if !roleDefined(cfg.Routing, tier) {
+				errs = append(errs, fmt.Errorf("routing.auto.criteria[%q] does not match a defined role", tier))
+			}
+		}
+		for name, policy := range cfg.Routing.Auto.Policies {
+			if !validAutoPolicies[name] {
+				errs = append(errs, fmt.Errorf("routing.auto.policies[%q] must be one of balanced, quality, economy, free", name))
+			}
+			if policy.Fallback != "" && !roleDefined(cfg.Routing, policy.Fallback) {
+				errs = append(errs, fmt.Errorf("routing.auto.policies[%q].fallback %q does not match a defined role", name, policy.Fallback))
+			}
+			for tier := range policy.Criteria {
+				if !roleDefined(cfg.Routing, tier) {
+					errs = append(errs, fmt.Errorf("routing.auto.policies[%q].criteria[%q] does not match a defined role", name, tier))
+				}
+			}
 		}
 	}
 	if cfg.RateLimit.RequestsPerSecond <= 0 {
@@ -330,4 +424,25 @@ func validate(cfg Config) error {
 // Addr returns the listen address as "host:port".
 func (s Server) Addr() string {
 	return fmt.Sprintf("%s:%d", s.Host, s.Port)
+}
+
+// roleDefined reports whether a name matches a configured role, accepting both
+// the bare ("worker") and prefixed ("inferencia-worker") forms.
+func roleDefined(cfg Routing, name string) bool {
+	if _, ok := cfg.Roles[name]; ok {
+		return true
+	}
+	if _, ok := cfg.Roles["inferencia-"+name]; ok {
+		return true
+	}
+	_, ok := cfg.Roles[strings.TrimPrefix(name, "inferencia-")]
+	return ok
+}
+
+// validAutoPolicies lists the auto policy suffixes understood by the planner.
+var validAutoPolicies = map[string]bool{
+	"balanced": true,
+	"quality":  true,
+	"economy":  true,
+	"free":     true,
 }
