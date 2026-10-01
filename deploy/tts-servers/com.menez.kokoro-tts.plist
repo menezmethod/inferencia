@@ -25,12 +25,12 @@
     <key>ProgramArguments</key>
     <array>
         <string>/usr/local/bin/python3</string>
-        <string>/Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers/kokoro_server.py</string>
+        <string>/path/to/inferencia/deploy/tts-servers/kokoro_server.py</string>
     </array>
 
     <!-- Working directory -->
     <key>WorkingDirectory</key>
-    <string>/Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers</string>
+    <string>/path/to/inferencia/deploy/tts-servers</string>
 
     <!-- Environment -->
     <key>EnvironmentVariables</key>
@@ -45,9 +45,9 @@
 
     <!-- Logs -->
     <key>StandardOutPath</key>
-    <string>/Users/luisgimenez/Library/Logs/kokoro-tts/stdout.log</string>
+    <string>/Users/YOUR_USER/Library/Logs/kokoro-tts/stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/luisgimenez/Library/Logs/kokoro-tts/stderr.log</string>
+    <string>/Users/YOUR_USER/Library/Logs/kokoro-tts/stderr.log</string>
 
     <!-- Rotate logs (10 files × 5 MB) -->
     <key>StandardOutDataSize</key>

@@ -2,6 +2,7 @@ package router
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/menezmethod/inferencia/internal/backend"
@@ -85,6 +86,8 @@ func (r *Registry) BackendsByCapability(kind Capability) []BackendInfo {
 			}
 		}
 	}
+	// Map iteration order is random; sort so round-robin tie-breaking is deterministic.
+	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 	return result
 }
 

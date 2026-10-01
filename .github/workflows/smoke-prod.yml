@@ -1,14 +1,13 @@
-# Optional: smoke test production deployment. Runs on schedule and manual trigger.
-# Set INFERENCIA_SMOKE_BASE_URL (and optionally INFERENCIA_E2E_API_KEY) in repo secrets.
-# When the secret is unset, this job fails loudly (scripts/smoke-prod.sh's own guard) —
-# a red check that says "not configured" beats a green one that never actually ran.
+# Optional: smoke test a deployment. Manual trigger only.
+# Set INFERENCIA_SMOKE_BASE_URL (and optionally INFERENCIA_E2E_API_KEY) in repo secrets,
+# then run it from the Actions tab. If the secret is unset the job fails loudly
+# (scripts/smoke-prod.sh's own guard) instead of passing without testing anything.
+# It was previously on a daily cron; that was removed because the secret was never
+# configured, so every scheduled run failed without telling anyone anything new.
 name: Smoke (production)
 
 on:
   workflow_dispatch:
-  schedule:
-    # Daily at 06:00 UTC
-    - cron: "0 6 * * *"
 
 jobs:
   smoke:

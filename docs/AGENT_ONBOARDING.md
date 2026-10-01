@@ -9,13 +9,13 @@ A lightweight, production-grade AI gateway that exposes local LLM and TTS server
 ## Base URL
 
 ```
-https://llm.menezmethod.com/v1
+https://your-inferencia.example.com/v1
 ```
 
 Interactive docs (Swagger UI):
 
 ```
-https://llm.menezmethod.com/docs
+https://your-inferencia.example.com/docs
 ```
 
 ---
@@ -74,7 +74,7 @@ Contact the administrator to obtain an API key.
 ### curl — simple
 
 ```bash
-curl https://llm.menezmethod.com/v1/chat/completions \
+curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -87,7 +87,7 @@ curl https://llm.menezmethod.com/v1/chat/completions \
 ### curl — streaming
 
 ```bash
-curl https://llm.menezmethod.com/v1/chat/completions \
+curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -102,7 +102,7 @@ Responds with `Content-Type: text/event-stream`. Each event is `data: {json}\n\n
 ### curl — tool calling
 
 ```bash
-curl https://llm.menezmethod.com/v1/chat/completions \
+curl https://your-inferencia.example.com/v1/chat/completions \
   -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -129,7 +129,7 @@ curl https://llm.menezmethod.com/v1/chat/completions \
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://llm.menezmethod.com/v1",
+    base_url="https://your-inferencia.example.com/v1",
     api_key="sk-your-api-key",
 )
 
@@ -146,7 +146,7 @@ print(response.choices[0].message.content)
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "https://llm.menezmethod.com/v1",
+  baseURL: "https://your-inferencia.example.com/v1",
   apiKey: "sk-your-api-key",
 });
 
@@ -162,7 +162,7 @@ console.log(response.choices[0].message.content);
 For any client that reads the standard OpenAI env vars:
 
 ```bash
-export OPENAI_BASE_URL=https://llm.menezmethod.com/v1
+export OPENAI_BASE_URL=https://your-inferencia.example.com/v1
 export OPENAI_API_KEY=sk-your-api-key
 ```
 
@@ -204,7 +204,7 @@ Default: `af_bella` (used if `voice` is omitted).
 ### curl — Kokoro TTS
 
 ```bash
-curl https://llm.menezmethod.com/v1/audio/speech \
+curl https://your-inferencia.example.com/v1/audio/speech \
   -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -218,7 +218,7 @@ curl https://llm.menezmethod.com/v1/audio/speech \
 ### curl — Chatterbox TTS (no voice field)
 
 ```bash
-curl https://llm.menezmethod.com/v1/audio/speech \
+curl https://your-inferencia.example.com/v1/audio/speech \
   -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -234,7 +234,7 @@ curl https://llm.menezmethod.com/v1/audio/speech \
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://llm.menezmethod.com/v1",
+    base_url="https://your-inferencia.example.com/v1",
     api_key="sk-your-api-key",
 )
 
@@ -263,7 +263,7 @@ import OpenAI from "openai";
 import fs from "fs";
 
 const client = new OpenAI({
-  baseURL: "https://llm.menezmethod.com/v1",
+  baseURL: "https://your-inferencia.example.com/v1",
   apiKey: "sk-your-api-key",
 });
 
@@ -285,7 +285,7 @@ fs.writeFileSync("speech.wav", buffer);
 ### curl
 
 ```bash
-curl https://llm.menezmethod.com/v1/embeddings \
+curl https://your-inferencia.example.com/v1/embeddings \
   -H "Authorization: Bearer sk-your-api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -300,7 +300,7 @@ curl https://llm.menezmethod.com/v1/embeddings \
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://llm.menezmethod.com/v1",
+    base_url="https://your-inferencia.example.com/v1",
     api_key="sk-your-api-key",
 )
 
@@ -318,7 +318,7 @@ print(response.data[0].embedding)
 ### curl
 
 ```bash
-curl https://llm.menezmethod.com/v1/models \
+curl https://your-inferencia.example.com/v1/models \
   -H "Authorization: Bearer sk-your-api-key"
 ```
 
@@ -328,7 +328,7 @@ curl https://llm.menezmethod.com/v1/models \
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://llm.menezmethod.com/v1",
+    base_url="https://your-inferencia.example.com/v1",
     api_key="sk-your-api-key",
 )
 
@@ -475,7 +475,7 @@ Any OpenAI-compatible SDK works by changing the `base_url` and `api_key`.
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://llm.menezmethod.com/v1",
+    base_url="https://your-inferencia.example.com/v1",
     api_key="sk-your-api-key",
 )
 ```
@@ -486,7 +486,7 @@ client = OpenAI(
 import OpenAI from "openai";
 
 const client = new OpenAI({
-  baseURL: "https://llm.menezmethod.com/v1",
+  baseURL: "https://your-inferencia.example.com/v1",
   apiKey: "sk-your-api-key",
 });
 ```
@@ -494,7 +494,7 @@ const client = new OpenAI({
 ### Environment Variables
 
 ```bash
-export OPENAI_BASE_URL=https://llm.menezmethod.com/v1
+export OPENAI_BASE_URL=https://your-inferencia.example.com/v1
 export OPENAI_API_KEY=sk-your-api-key
 ```
 
@@ -509,7 +509,7 @@ Internet → Cloudflare Tunnel → Pi5:80 → Traefik → inferencia:8080
                             ↓                                                         ↓
                    Ollama (:11434)                            Kokoro (:50051) / Chatterbox (:50052)
                    (chat, embed)                                       (TTS)
-                   Mac M4 Max — 192.168.0.109
+                   Mac M4 Max — 192.168.0.x
 ```
 
 - **Raspberry Pi 5** — Runs only inferencia (Go binary, ~20 MB). No ML models.
