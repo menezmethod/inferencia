@@ -13,8 +13,9 @@ Usage: python3 -I parse_run.py <stream.jsonl> <task> <arm> <accepted> <secs> <ex
   subagents on its configured model.
 - quota_hit: a rate_limit_event that was not "allowed": the run hit a plan limit
   and must be rerun, not counted as a quality failure.
-- outside_paths: absolute paths in tool inputs that point outside the run dir and
-  the Go toolchain/cache (leak check). Rows with outside_paths > 0 need review.
+- outside_paths: absolute paths in location fields of tool inputs (file_path, path,
+  command, workdir) that point outside the run, its Go cache, ~/go and its own saved
+  tool outputs (leak check). Rows with outside_paths > 0 need review.
 """
 import json
 import os
@@ -30,7 +31,9 @@ PRICE = {
 FIELDS = ["task", "arm", "accepted", "secs", "exit", "turns", "cost_usd", "cost_partial", "input", "cache_read",
           "cache_write", "output", "worker_input", "worker_cache_read", "worker_output", "worker_models",
           "models", "quota_hit", "outside_paths", "result"]
-PATH_RE = re.compile(r"(?<![\w.])(/(?:Users|private|tmp|var|opt|Volumes)/[^\s\"'`;|&)<>]*)")
+PATH_RE = re.compile(r"(?<![\w.])(/(?:Users|private|tmp|var|opt|Volumes)/[^\s\"'`;|&)<>\\]*)")
+# Only fields that name a location are checked; file contents may mention any path.
+PATH_FIELDS = ("file_path", "path", "notebook_path", "command", "workdir", "cwd")
 
 
 def price_usage(model, u):
@@ -43,9 +46,14 @@ def price_usage(model, u):
             + (write - one_hour) * p[3] + one_hour * p[4]) / 1e6
 
 
-def outside(path, allowed):
+def under(path, roots):
+    return any(path == r or path.startswith(r + os.sep) for r in roots)
+
+
+def outside(path, allowed, sensitive):
+    """True when path could reach an answer: under home or the E3 workdir, and not allowed."""
     path = os.path.normpath(path)
-    return not any(path == a or path.startswith(a + os.sep) for a in allowed)
+    return under(path, sensitive) and not under(path, allowed)
 
 
 def main():
@@ -56,9 +64,10 @@ def main():
     # Allowed: the run, the module cache, the run's own Go cache, and the run's own
     # Claude Code project dir, where the client saves large tool outputs that the
     # model then reads back (its own session's data, not another run's).
-    allowed = [real, os.path.normpath(run), os.path.join(home, "go", "pkg", "mod"), "/tmp", "/dev",
+    allowed = [real, os.path.normpath(run), os.path.join(home, "go"), "/tmp", "/dev",
                os.path.join(os.path.dirname(os.path.dirname(real)), "gocache-" + os.path.basename(real)),
                os.path.join(home, ".claude", "projects", re.sub(r"[^A-Za-z0-9]", "-", real))]
+    sensitive = [home, os.path.dirname(os.path.dirname(real))]  # answers live only here: source repos, clones, other runs
     result, by_msg, quota, leaks = {}, {}, 0, 0
     worker = {"input": 0, "cache_read": 0, "output": 0}
     worker_models = set()
@@ -101,9 +110,15 @@ def main():
                 by_msg[msg["id"]] = (msg.get("model", ""), msg["usage"])
             for block in msg.get("content") or []:
                 if isinstance(block, dict) and block.get("type") == "tool_use":
-                    for p in PATH_RE.findall(json.dumps(block.get("input"))):
-                        if outside(p, allowed):
-                            leaks += 1
+                    inp = block.get("input") or {}
+                    fields = [inp.get(k) for k in PATH_FIELDS if isinstance(inp.get(k), str)]
+                    for bundle in inp.get("tasks") or []:  # cc-delegate batches name a workdir per task
+                        if isinstance(bundle, dict) and isinstance(bundle.get("workdir"), str):
+                            fields.append(bundle["workdir"])
+                    for text in fields:
+                        for p in PATH_RE.findall(text):
+                            if outside(p.rstrip(".,:;"), allowed, sensitive):
+                                leaks += 1
         elif kind == "user":
             for block in (ev.get("message") or {}).get("content") or []:
                 if not (isinstance(block, dict) and block.get("type") == "tool_result"):
