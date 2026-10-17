@@ -13,9 +13,9 @@ import (
 
 // ServiceStatus represents the health of a single backend service.
 type ServiceStatus struct {
-	Status   string       `json:"status"`             // "healthy" or "unhealthy"
-	Error    string       `json:"error,omitempty"`    // error message if unhealthy
-	Models   []ModelBrief `json:"models,omitempty"`   // available models/voices
+	Status string       `json:"status"`           // "healthy" or "unhealthy"
+	Error  string       `json:"error,omitempty"`  // error message if unhealthy
+	Models []ModelBrief `json:"models,omitempty"` // available models/voices
 }
 
 // ModelBrief is a lightweight summary of a model or voice offered by a backend.

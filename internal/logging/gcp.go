@@ -19,7 +19,7 @@ var severityByLevel = map[slog.Level]string{
 // GCPHandler wraps a slog.Handler and adds "severity" (and optionally "resource")
 // so that JSON logs are natively parsed by GCP Cloud Logging.
 type GCPHandler struct {
-	inner    slog.Handler
+	inner       slog.Handler
 	addResource bool
 }
 

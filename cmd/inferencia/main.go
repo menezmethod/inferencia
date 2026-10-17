@@ -67,8 +67,8 @@ func main() {
 	for _, t := range cfg.TTSBackends {
 		ttsBackend := backend.NewTTSHTTP(t.Name, t.URL, t.Timeout)
 		ttsRouter.Register(router.BackendInfo{
-			Name:       t.Name,
-			TTSBackend: ttsBackend,
+			Name:         t.Name,
+			TTSBackend:   ttsBackend,
 			Capabilities: []router.Capability{router.CapTTS},
 			Models: []router.ModelInfo{
 				{ID: t.Name, Kind: router.CapTTS},

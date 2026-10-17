@@ -94,10 +94,10 @@ func (m *mockTTSBackend) Voices(context.Context) ([]backend.Voice, error) {
 func newTestTTSRegistry(mock *mockTTSBackend) *router.Registry {
 	r := router.NewRegistry()
 	r.Register(router.BackendInfo{
-		Name:       mock.name,
-		TTSBackend: mock,
+		Name:         mock.name,
+		TTSBackend:   mock,
 		Capabilities: []router.Capability{router.CapTTS},
-		Models:     []router.ModelInfo{{ID: mock.name, Kind: router.CapTTS}},
+		Models:       []router.ModelInfo{{ID: mock.name, Kind: router.CapTTS}},
 	})
 	return r
 }

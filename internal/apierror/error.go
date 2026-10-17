@@ -12,11 +12,11 @@ import (
 
 // Type constants follow the OpenAI error type taxonomy.
 const (
-	TypeInvalidRequest  = "invalid_request_error"
-	TypeAuthentication  = "authentication_error"
-	TypeRateLimit       = "rate_limit_error"
-	TypeServer          = "server_error"
-	TypeBackendDown     = "backend_error"
+	TypeInvalidRequest = "invalid_request_error"
+	TypeAuthentication = "authentication_error"
+	TypeRateLimit      = "rate_limit_error"
+	TypeServer         = "server_error"
+	TypeBackendDown    = "backend_error"
 )
 
 // Error represents an OpenAI-compatible API error.
