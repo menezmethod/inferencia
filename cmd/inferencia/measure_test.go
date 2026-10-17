@@ -132,3 +132,33 @@ func TestMeasureRejectsCatalogFlag(t *testing.T) {
 		t.Fatalf("exit %d, want 2: measure reads no prices", code)
 	}
 }
+
+func TestRunReplay(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := runReplay(fixtureSources, &out, &errOut); code != 0 {
+		t.Fatalf("exit %d: %s", code, errOut.String())
+	}
+	s := out.String()
+	// as-run: the Codex row only (Claude fixture models are unpriced) = 108.00.
+	if !regexp.MustCompile(`as-run\s+108\.00\s+1\.00x\s+0\s+0\.00`).MatchString(s) {
+		t.Errorf("as-run row wrong:\n%s", s)
+	}
+	// The Codex fixture session is delegated, so moving delegated work to strong-test:
+	// 200*0.01 + 2800*0.001 + 120*0.05 = 10.80.
+	if !regexp.MustCompile(`delegated -> strong-test\s+10\.80\s+0\.10x`).MatchString(s) {
+		t.Errorf("delegated row wrong:\n%s", s)
+	}
+	// Subscription-first: the Codex usage is under the $20 chatgpt plan; nothing else is priced.
+	if !regexp.MustCompile(`subscription-first.*\s+20\.00-20\.00\s+0\.19x-0\.19x`).MatchString(s) {
+		t.Errorf("subscription-first row wrong:\n%s", s)
+	}
+	// Naive router: the Codex record averages 1,500 prompt tokens per call, so cheap-test: 0.2 + 0.28 + 0.12.
+	if !regexp.MustCompile(`naive per call.*\s+0\.60\s+0\.01x`).MatchString(s) {
+		t.Errorf("naive row wrong:\n%s", s)
+	}
+	for _, want := range []string{"same 1 calls", "4 calls that cannot be priced", "CACHE LOSS", "lower bound", "Quality is not modeled"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("lacks %q", want)
+		}
+	}
+}

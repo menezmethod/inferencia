@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"slices"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/menezmethod/inferencia/internal/catalog"
 	"github.com/menezmethod/inferencia/internal/ledger"
+	"github.com/menezmethod/inferencia/internal/replay"
 )
 
 // reportCmd holds the flags measure, savings and subs share: a time window,
@@ -225,6 +227,116 @@ func runSubs(args []string, stdout, stderr io.Writer) int {
 		"Max is listed only as \"from $100\"; a higher Max tier lowers its ratio. A (partial) month is compared with a full month's price.\n", cat.AsOf)
 	writeUnpriced(stdout, unpriced)
 	return 0
+}
+
+// runReplay implements `inferencia replay`: the recorded sessions re-priced
+// under routing policies, with the cost of mid-session model switches.
+func runReplay(args []string, stdout, stderr io.Writer) int {
+	cmd := newReportCmd("replay", true, stderr)
+	strong := cmd.fs.String("strong", "", "strong-tier model for delegated work and the main loop (default: cheapest strong on this usage)")
+	fast := cmd.fs.String("fast", "", "fast-tier model for the naive router's small calls (default: cheapest fast on this usage)")
+	threshold := cmd.fs.Int64("threshold", 128_000, "naive router: calls with a smaller prompt go to the fast model")
+	all, cat, code, ok := cmd.loadPriced(args)
+	if !ok {
+		return code
+	}
+	us, excluded := replay.Priceable(cat, all)
+	picks := map[string]string{}
+	for _, id := range cat.CheapestPerTier(us) {
+		m, _ := cat.Lookup(id)
+		picks[m.Tier] = id
+	}
+	if *strong == "" {
+		*strong = picks["strong"]
+	}
+	if *fast == "" {
+		*fast = picks["fast"]
+	}
+	frontier := map[string]bool{}
+	for _, m := range cat.Models {
+		if m.Tier == "frontier" {
+			frontier[m.ID] = true
+			for _, a := range m.Aliases {
+				frontier[a] = true
+			}
+		}
+	}
+
+	type policy struct {
+		name string
+		p    replay.Policy
+		need []string
+	}
+	policies := []policy{
+		{"as-run", replay.AsRun, nil},
+		{"delegated -> " + *strong, replay.Floor(*strong), []string{*strong}},
+		{"main loop off frontier -> " + *strong, replay.MainOn(frontier, *strong), []string{*strong}},
+		{fmt.Sprintf("naive per call (<%dk -> %s, else %s)", *threshold/1000, *fast, *strong), replay.NaivePerCall(*threshold, *fast, *strong), []string{*fast, *strong}},
+	}
+	tw := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', tabwriter.AlignRight)
+	fmt.Fprintln(tw, "POLICY\tEST $\tVS AS-RUN\tSWITCHES\tCACHE LOSS $\tUNPRICED CALLS\t")
+	// UNPRICED CALLS counts calls a policy moved onto a model with no usable price.
+	var base float64
+	for _, pol := range policies {
+		if slices.Contains(pol.need, "") {
+			fmt.Fprintf(tw, "%s\t-\t-\t-\t-\t-\t\n", pol.name)
+			continue
+		}
+		r, err := replay.Run(cat, us, pol.name, pol.p)
+		if err != nil {
+			fmt.Fprintf(stderr, "replay: %s: %v\n", pol.name, err)
+			return 1
+		}
+		if pol.name == "as-run" {
+			base = r.USD
+		}
+		fmt.Fprintf(tw, "%s\t%.2f\t%s\t%d\t%.2f\t%d\t\n", pol.name, r.USD, ratio(r.USD, base), r.Switches, r.CacheLossUSD, r.Unpriced.Calls)
+	}
+
+	// Subscription-first: plan-covered usage costs its plan fee, the rest pays per token.
+	pms, _, err := cat.Subs(us)
+	if err != nil {
+		fmt.Fprintf(stderr, "replay: %v\n", err)
+		return 1
+	}
+	var feeLow, feeHigh float64
+	for _, pm := range pms {
+		lo, hi := math.Inf(1), 0.0
+		for _, usd := range pm.Plan.Tiers {
+			lo, hi = min(lo, usd), max(hi, usd)
+		}
+		feeLow, feeHigh = feeLow+lo, feeHigh+hi
+	}
+	var rest []ledger.Usage
+	for _, u := range us {
+		if _, ok := cat.PlanFor(u); !ok {
+			rest = append(rest, u)
+		}
+	}
+	r, err := replay.Run(cat, rest, "rest", replay.AsRun)
+	if err != nil {
+		fmt.Fprintf(stderr, "replay: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(tw, "subscription-first (plan fees, lowest-highest tier, + per-token rest)\t%.2f-%.2f\t%s-%s\t0\t0.00\t%d\t\n",
+		feeLow+r.USD, feeHigh+r.USD, ratio(feeLow+r.USD, base), ratio(feeHigh+r.USD, base), r.Unpriced.Calls)
+	if !flush(tw, "replay", stderr) {
+		return 1
+	}
+	fmt.Fprintf(stdout, "\nEstimates at catalog list prices (as of %s); no model was called. Policies keep each call's token split.\n", cat.AsOf)
+	fmt.Fprintf(stdout, "Every policy runs on the same %d calls; %d calls that cannot be priced as run are excluded from all of them.\n", len(us), excluded.Calls)
+	fmt.Fprintln(stdout, "A switch means a call ran on a different model than the call before it in the same session; it pays a")
+	fmt.Fprintln(stdout, "cache write for what the old model had cached (CACHE LOSS $). Subagent sessions are separate, so moving them never switches.")
+	fmt.Fprintln(stdout, "Subscription-first assumes every plan-covered call fit inside its plan's quota, so it is a lower bound on cost.")
+	fmt.Fprintln(stdout, "Quality is not modeled: a cheaper policy is only worth it if E3 shows its accept rate holds.")
+	return 0
+}
+
+func ratio(v, base float64) string {
+	if base == 0 {
+		return "-"
+	}
+	return fmt.Sprintf("%.2fx", v/base)
 }
 
 func tierRatios(pm catalog.PlanMonth) string {

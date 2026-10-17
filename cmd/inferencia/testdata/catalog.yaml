@@ -2,6 +2,7 @@ as_of: 2026-10-17
 # Prices are scaled up so command tests can assert exact dollar values.
 models:
   - {id: gpt-test, provider: openai, tier: frontier, data_policy: unknown, price: {input: 100000, output: 500000, cache_read: 10000}, source: https://example.test/a}
+  - {id: strong-test, provider: y, tier: strong, data_policy: unknown, price: {input: 10000, output: 50000, cache_read: 1000, cache_write: 12500}, source: https://example.test/d}
   - {id: cheap-test, provider: x, tier: fast, data_policy: unknown, price: {input: 1000, output: 1000, cache_read: 100}, source: https://example.test/b}
 plans:
   - {id: chatgpt, upstreams: [openai], harness: codex, tiers: {plus: 20}, source: https://example.test/c}

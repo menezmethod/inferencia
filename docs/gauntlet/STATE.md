@@ -36,7 +36,7 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
 | E1 | Ledger vs a billed source | SKIPPED-NO-BILL (no API key in the shell) | |
-| E2 | Offline replay under 4 policies | TODO | |
+| E2 | Offline replay under 5 policies | DONE | [E2](experiments/E2/README.md) |
 | E3-suite | Task suite with hidden tests (30+) | TODO | |
 | E3a | Pilot: 30 tasks x 3 arms | TODO | |
 | E3b | Powered set | TODO | |
@@ -81,3 +81,4 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 - 2026-10-17: S1 done. Golden numbers match for OpenCode, Codex, Command Code. Findings F1 (Claude retention), F2 (Haiku calls now appear).
 - 2026-10-17: S2 done. Findings F3-F6 (plans worth 25-31x at list prices; price tables disagree).
 - 2026-10-17: E1 skipped: no billed source reachable (no OpenRouter or provider key exported).
+- 2026-10-17: E2 done. Main loop off frontier: 0.41x; delegated only: 0.90x; naive router: 547 switches, $13 cache loss. Two replay bugs found by tests and fixed (mixed populations; recorded switches charged twice).

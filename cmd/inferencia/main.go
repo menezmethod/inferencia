@@ -31,6 +31,8 @@ func main() {
 			os.Exit(runSavings(os.Args[2:], os.Stdout, os.Stderr))
 		case "subs":
 			os.Exit(runSubs(os.Args[2:], os.Stdout, os.Stderr))
+		case "replay":
+			os.Exit(runReplay(os.Args[2:], os.Stdout, os.Stderr))
 		}
 	}
 
