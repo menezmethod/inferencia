@@ -86,3 +86,4 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 - 2026-10-17: E3 suite: 30 valid tasks. E4 done: user is on OpenCode Go $10 (Kimi cap hit at $15.05); $10.73 avoidable per-token spend found.
 - 2026-10-17: F7: router round-robin bug (map order) fixed, 4473f88.
 - 2026-10-17: E3 harness hardened after review (3 blockers, 8 majors fixed); live isolation probe passed; pilot started. D6 (tests visible), D7 (Claude plan quota signal).
+- 2026-10-17: App restart wiped the session scratchpad; the first pilot run (11 of 31 tasks) and its results were lost. Interim read on 8 tasks before the loss: all arms 100% accepted; $/accepted vs A: B 1.16x, C 1.28x; B never used its subagent model. Pilot relaunched in /private/tmp/inferencia-e3 with results copied to experiments/E3/results/pilot.csv after every task.
