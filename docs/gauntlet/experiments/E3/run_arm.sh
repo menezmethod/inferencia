@@ -64,11 +64,12 @@ case "$arm" in
   C)
     printf '{"mcpServers":{"delegate-local":{"command":"%s"}}}\n' "$HOME/AI/cc-delegate/bin/run-mcp.sh" > "$run.mcp.json"
     extra=(--mcp-config "$run.mcp.json" --strict-mcp-config)
-    tools+=("mcp__delegate-local__delegate_batch" "mcp__delegate-local__delegate_to_local_agent")
+    tools+=("mcp__delegate-local__delegate_batch" "mcp__delegate-local__delegate_to_local_agent" "mcp__delegate-local__list_local_agents")
     prompt="$prompt
 
 How to work: plan once, then split the change into 1-6 bundles. Send the bundles to workers with
-mcp__delegate-local__delegate_batch (model deepseek-v4-1-flash, workdir $run). Give each bundle its goal,
+mcp__delegate-local__delegate_batch: one task per bundle, each with agent_name "flash-builder", model
+"deepseek-v4-1-flash" and workdir "$run". Give each bundle its goal,
 the files in scope, constraints, the verify command, and what done means. Workers never certify their own
 work: after they finish, run the verify commands yourself and review the diff. Write code yourself only to
 fix small problems the workers leave."
