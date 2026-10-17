@@ -37,10 +37,10 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 | --- | --- | --- | --- |
 | E1 | Ledger vs a billed source | SKIPPED-NO-BILL (no API key in the shell) | |
 | E2 | Offline replay under 5 policies | DONE | [E2](experiments/E2/README.md), [review](evidence/E2-review.md) |
-| E3-suite | Task suite with hidden tests (30+) | IN-PROGRESS: 23 valid of 26 | |
+| E3-suite | Task suite with hidden tests (30+) | DONE: 30 valid of 34 | [suite](experiments/E3/suite.tsv) |
 | E3a | Pilot: 30 tasks x 3 arms | TODO | |
 | E3b | Powered set | TODO | |
-| E4 | Subscription value + dispatch simulation | TODO | |
+| E4 | Subscription value + dispatch simulation | DONE | [E4](experiments/E4/README.md) |
 | GATE1 | Gate 1 decision (deadline 2026-11-11) | TODO | |
 
 ## S4 Gateway (P1; PASS, or PROVISIONAL in shadow mode only)
@@ -83,3 +83,5 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 - 2026-10-17: E1 skipped: no billed source reachable (no OpenRouter or provider key exported).
 - 2026-10-17: E2 done. Main loop off frontier: 0.41x; delegated only: 0.90x; naive router: 547 switches, $13 cache loss. Two replay bugs found by tests and fixed (mixed populations; recorded switches charged twice).
 - 2026-10-17: E2 review fixes: per-subagent conversations, 1-hour rewrites, alias ids, Codex records never switch. New result: naive router with an expensive target costs 1.16x as-run ($233 cache loss).
+- 2026-10-17: E3 suite: 30 valid tasks. E4 done: user is on OpenCode Go $10 (Kimi cap hit at $15.05); $10.73 avoidable per-token spend found.
+- 2026-10-17: F7: router round-robin bug (map order) fixed, 4473f88.
