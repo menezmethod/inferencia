@@ -37,8 +37,8 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 | --- | --- | --- | --- |
 | E1 | Ledger vs a billed source | SKIPPED-NO-BILL (no API key in the shell) | |
 | E2 | Offline replay under 5 policies | DONE | [E2](experiments/E2/README.md), [review](evidence/E2-review.md) |
-| E3-suite | Task suite with hidden tests (30+) | DONE: 30 valid of 34 | [suite](experiments/E3/suite.tsv) |
-| E3a | Pilot: 30 tasks x 3 arms | TODO | |
+| E3-suite | Task suite (30+) | DONE: 31 valid of 34, hardened harness | [suite](experiments/E3/suite.tsv), [review](evidence/E3-harness-review.md) |
+| E3a | Pilot: 31 tasks x 3 arms | IN-PROGRESS (started 2026-10-17 ~13:30 UTC) | |
 | E3b | Powered set | TODO | |
 | E4 | Subscription value + dispatch simulation | DONE | [E4](experiments/E4/README.md) |
 | GATE1 | Gate 1 decision (deadline 2026-11-11) | TODO | |
@@ -85,3 +85,4 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 - 2026-10-17: E2 review fixes: per-subagent conversations, 1-hour rewrites, alias ids, Codex records never switch. New result: naive router with an expensive target costs 1.16x as-run ($233 cache loss).
 - 2026-10-17: E3 suite: 30 valid tasks. E4 done: user is on OpenCode Go $10 (Kimi cap hit at $15.05); $10.73 avoidable per-token spend found.
 - 2026-10-17: F7: router round-robin bug (map order) fixed, 4473f88.
+- 2026-10-17: E3 harness hardened after review (3 blockers, 8 majors fixed); live isolation probe passed; pilot started. D6 (tests visible), D7 (Claude plan quota signal).
