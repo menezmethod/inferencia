@@ -29,6 +29,21 @@ cp .env.example .env
 docker compose up -d
 ```
 
+## 💸 Cost commands
+
+Read-only reports from the logs your coding harnesses already write (Claude Code, Codex CLI,
+OpenCode, Command Code). No gateway, no network, nothing written.
+
+```bash
+go run ./cmd/inferencia measure --since 2026-10-01   # spend by harness, upstream and model; cache share; solo vs delegated
+go run ./cmd/inferencia savings                       # list-price cost as run vs the same tokens on other models
+go run ./cmd/inferencia subs                          # API-equivalent value of each flat plan per month
+go run ./cmd/inferencia replay                        # recorded sessions re-priced under routing policies, cache loss included
+```
+
+Prices live in [internal/catalog/catalog.yaml](internal/catalog/catalog.yaml), each with a source
+URL; an unknown model is reported, never priced at $0. See [docs/EDUCATION.md](docs/EDUCATION.md).
+
 ## 🏗️ Architecture
 
 Inferencia is a Go HTTP server that acts as a universal AI gateway, routing requests to configured LLM (Ollama, LLaMA.cpp) and TTS (Kokoro) backends. It exposes an OpenAI-compatible `/v1/chat/completions` endpoint plus custom endpoints for TTS, health monitoring, and model inventory. Smart routing selects the optimal backend per request kind (chat vs. TTS) with configurable fallback chains. The server includes Prometheus metrics, structured logging with Loki, OpenTelemetry tracing, and a comprehensive health check system.
