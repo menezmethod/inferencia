@@ -82,7 +82,7 @@ cat > "$profile" <<EOF
 (deny file-read* file-write*
   (subpath "$HOME/.ssh") (subpath "$HOME/code") (subpath "$HOME/.claude/projects")
   (literal "$HOME/.claude.json") (subpath "$workdir"))
-(allow file-read* file-write* (subpath "$run") (subpath "$gocache"))
+(allow file-read* file-write* (subpath "$run") (subpath "$gocache") (literal "$logs.dispatches.jsonl"))
 EOF
 
 case "$arm" in
