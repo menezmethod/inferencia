@@ -1,0 +1,35 @@
+id	repo	commit	parent	packages	verdict
+T01	inferencia	6bb03ce	b790114c26e47f072224f7e2be7c0c93f242c583	./internal/backend 	valid
+T02	inferencia	2166815	ec67acace6b40a2990159dd9830555f909520578	./internal/backend ./internal/router 	valid
+T03	inferencia	69e19aa	6aa017c7ef349a57d1997d2050afb4bfb391b72b	./internal/handler 	valid
+T04	inferencia	c310664	e6a8da33d9d34cbc0fe978e22e40317a56f81dbb	./internal/backend ./internal/handler 	valid
+T05	inferencia	f6de819	5ac53db28aae00bc3d146544e5420a880f74d095	./internal/router 	valid
+T06	inferencia	0ce9282	b967fc9df40af916403d2a322c1b10af73bb3559	./internal/apierror ./internal/backend ./internal/config ./internal/handler ./internal/watchdog 	valid
+T07	inferencia	899960f	c07423e37d5076a28efbb638e4c88dc93fa89cf5	./internal/handler 	valid
+T08	inferencia	60c3437	e387572cd113e42c3124510436c6cacbd37f802d	./internal/watchdog 	valid
+T09	inferencia	e387572	50d04efe9c2ae06a9ea3c0e49d5f55e7bdce8066	./integration ./internal/handler ./internal/router 	valid
+T10	inferencia	4c79997	27fa98d2a2d9a4b261443f940885380fc2d02a92	./internal/router 	invalid-fails-at-commit
+T11	parrish_api	4ec6ebb	1bb64c9f7329dce6447de29dc232adee6cc6b0c0	./internal/platform/places 	valid
+T12	parrish_api	e3807df	d07214189cefb91aa2484efbf1ee6297c25a7630	./internal/db 	invalid-passes-at-parent
+T13	parrish_api	9f0f3c9	531eb839530ce833856c33a8983265d0a0d1613a	./internal/domain/business ./internal/http 	valid
+T14	parrish_api	abb71b7	0696aaa260a67485c5701a96542a3da6fa45fee4	./cmd/worker ./internal/platform/gemini 	valid
+T15	parrish_api	0696aaa	999294dd63ddc69af00efeb2f30a9eb36fee26fb	./internal/config ./internal/platform/gemini 	valid
+T16	parrish_api	999294d	8ee55ab2242012082766226a29144ca5c1376463	./internal/platform/places 	valid
+T17	parrish_api	8ee55ab	cbe88b98c7618a15fb8930de6f5bd9d9ea956a8e	./internal/platform/inferencia ./internal/worker 	valid
+T18	parrish_api	cbe88b9	8b3ad3752c83a85c5a40808b24a882ef0aa6c211	./internal/domain/business ./internal/http 	valid
+T19	parrish_api	8b3ad37	d1378331662dd01cda5c228ef892dd42e05e02b6	./internal/domain/business ./internal/http 	valid
+T20	parrish_api	d137833	eb5bc14bdd8aaceec5507032c0ada612d472f335	./internal/domain/business ./internal/http 	valid
+T21	parrish_api	2ddfe36	d7a52457dbf802b0edd3b6c9770ae74aa9e82851	./internal/config ./internal/http 	valid
+T22	parrish_api	d7a5245	6e9e5b6e312a90d4ea3b9b8fbcdb9a87915b3c8e	./internal/http 	valid
+T23	parrish_api	db922d0	7d6d84326ebae9f04739cef38f9c054fdf16185e	./internal/http ./internal/http/middleware 	valid
+T24	parrish_api	7d6d843	4581a8cb2bb77b2a8a732f6f2a028ef049bdbd92	./internal/worker 	valid
+T25	parrish_api	4581a8c	9c6c8ddd03cefa570c3c1f3aabdc32beccf58599	./internal/db 	invalid-passes-at-parent
+T26	parrish_api	9c6c8dd	a1129f050cfd1fd87ffb90fc2396f28f342143be	./internal/auth ./internal/config ./internal/platform/metrics 	valid
+T27	inferencia	b967fc9	899960ff5ee83aa8ba028a4950cac04f52bbd608	./integration 	valid
+T28	inferencia	dea9be6	a02d4c7092913f0dccd1228829cc56c14d065eec	./internal/config ./internal/handler 	valid
+T29	inferencia	72f4309	9971675b651d43c1fd7dd26d03bfefd570ce0538	./internal/auth ./internal/config 	invalid-passes-at-parent
+T30	inferencia	a02d4c7	2281dec94e19c21aeac0f0f7adc59d2cacbf4785	./internal/config 	valid
+T31	inferencia	25de5cb	ac0967cf3fac4445aea06102c2c82bae5beb0646	./cmd/inferencia ./internal/ledger 	valid
+T32	inferencia	7fd84ce	25de5cb5b4402dc96c539ec1ff9bfedb64266600	./cmd/inferencia ./internal/catalog ./internal/ledger 	valid
+T33	inferencia	08998f1	7fd84cef5f5b7a35be54c82c69aa03d3fa49e0e2	./cmd/inferencia ./internal/replay 	valid
+T34	parrish_api	ff68acf	093d7716651660feb1c16cc8152a8d86ba8cebef	./internal/config ./internal/platform/openrouter ./internal/platform/places/placesmock ./internal/worker 	valid
