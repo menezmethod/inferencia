@@ -27,6 +27,10 @@ func main() {
 		switch os.Args[1] {
 		case "measure":
 			os.Exit(runMeasure(os.Args[2:], os.Stdout, os.Stderr))
+		case "savings":
+			os.Exit(runSavings(os.Args[2:], os.Stdout, os.Stderr))
+		case "subs":
+			os.Exit(runSubs(os.Args[2:], os.Stdout, os.Stderr))
 		}
 	}
 

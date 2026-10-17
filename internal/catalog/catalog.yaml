@@ -1,0 +1,202 @@
+# Model price catalog. Prices are USD per million tokens.
+# Every model needs a source URL and an as-of date; Load rejects entries without them.
+# cache_write is the 5-minute write; cache_write_1h is Anthropic's 1-hour write.
+# A price that is absent is unknown, never zero: a call that needs it fails loud.
+#
+# Tiers are an initial judgment (frontier > strong > fast > local), to be replaced by your
+# own accept rate per role once E3 has data. data_policy is unknown unless a source says so.
+
+as_of: 2026-10-17
+
+sources:
+  anthropic: &anthropic https://platform.claude.com/docs/en/about-claude/pricing
+  openrouter: &openrouter https://openrouter.ai/api/v1/models
+  opencode_go: &opencode_go https://opencode.ai/docs/go/
+  chatgpt: &chatgpt https://learn.chatgpt.com/docs/pricing
+  openai_data: &openai_data https://developers.openai.com/api/docs/guides/your-data
+
+models:
+  # Anthropic, from Anthropic's pricing page (matches OpenRouter on 2026-10-17).
+  - id: claude-fable-5-1
+    aliases: [anthropic/claude-fable-5.1]
+    provider: anthropic
+    tier: frontier
+    data_policy: unknown
+    price: {input: 10, output: 50, cache_read: 0.25, cache_write: 12.50, cache_write_1h: 20}
+    source: *anthropic
+  - id: claude-opus-5-5
+    aliases: [anthropic/claude-opus-5.5]
+    provider: anthropic
+    tier: frontier
+    data_policy: unknown
+    price: {input: 4, output: 20, cache_read: 0.20, cache_write: 5, cache_write_1h: 8}
+    source: *anthropic
+  - id: claude-opus-5
+    aliases: [anthropic/claude-opus-5]
+    provider: anthropic
+    tier: frontier
+    data_policy: unknown
+    price: {input: 5, output: 25, cache_read: 0.50, cache_write: 6.25, cache_write_1h: 10}
+    source: *anthropic
+  - id: claude-sonnet-5-5
+    aliases: [anthropic/claude-sonnet-5.5]
+    provider: anthropic
+    tier: strong
+    data_policy: unknown
+    price: {input: 2, output: 10, cache_read: 0.10, cache_write: 2.50, cache_write_1h: 4}
+    source: *anthropic
+  - id: claude-sonnet-5
+    aliases: [anthropic/claude-sonnet-5]
+    provider: anthropic
+    tier: strong
+    data_policy: unknown
+    price: {input: 2, output: 10, cache_read: 0.20, cache_write: 2.50, cache_write_1h: 4}
+    source: *anthropic
+  - id: claude-haiku-5-5
+    aliases: [anthropic/claude-haiku-5.5]
+    provider: anthropic
+    tier: fast
+    data_policy: unknown
+    # A request whose prompt (input + cache reads + cache writes) is over 100,000
+    # tokens pays the long_context prices, per request.
+    price: {input: 0.10, output: 0.50, cache_read: 0.01, cache_write: 0.125, cache_write_1h: 0.20}
+    long_context:
+      above: 100000
+      price: {input: 0.50, output: 2.50, cache_read: 0.05, cache_write: 0.625, cache_write_1h: 1}
+    source: *anthropic
+  - id: claude-haiku-4-5
+    aliases: [claude-haiku-4-5-20251001, anthropic/claude-haiku-4.5]
+    provider: anthropic
+    tier: fast
+    data_policy: unknown
+    price: {input: 1, output: 5, cache_read: 0.10, cache_write: 1.25, cache_write_1h: 2}
+    source: *anthropic
+
+  # OpenAI, from OpenRouter (openai.com/api/pricing returned 403 on 2026-10-17).
+  - id: gpt-6-astra
+    aliases: [openai/gpt-6-astra]
+    provider: openai
+    tier: frontier
+    data_policy: no-train
+    data_policy_source: *openai_data
+    price: {input: 10, output: 50, cache_read: 1, cache_write: 12.50}
+    source: *openrouter
+  - id: gpt-6.1-sol
+    aliases: [openai/gpt-6.1-sol]
+    provider: openai
+    tier: strong
+    data_policy: no-train
+    data_policy_source: *openai_data
+    price: {input: 2, output: 10, cache_read: 0.10, cache_write: 2.50}
+    source: *openrouter
+  - id: gpt-6-sol
+    aliases: [openai/gpt-6-sol]
+    provider: openai
+    tier: strong
+    data_policy: no-train
+    data_policy_source: *openai_data
+    price: {input: 2, output: 10, cache_read: 0.20, cache_write: 2.50}
+    source: *openrouter
+  - id: gpt-6-luna
+    aliases: [openai/gpt-6-luna]
+    provider: openai
+    tier: fast
+    data_policy: no-train
+    data_policy_source: *openai_data
+    price: {input: 0.10, output: 0.50, cache_read: 0.01, cache_write: 0.125}
+    source: *openrouter
+  - id: gpt-5.6-luna
+    aliases: [openai/gpt-5.6-luna]
+    provider: openai
+    tier: fast
+    data_policy: no-train
+    data_policy_source: *openai_data
+    price: {input: 0.20, output: 1.20, cache_read: 0.02, cache_write: 0.25}
+    source: *openrouter
+  - id: gpt-5.4
+    aliases: [openai/gpt-5.4]
+    provider: openai
+    tier: strong
+    data_policy: no-train
+    data_policy_source: *openai_data
+    price: {input: 2.50, output: 15, cache_read: 0.25}
+    source: *openrouter
+
+  # Open-weight models, at OpenRouter list prices.
+  - id: deepseek-v4-flash
+    aliases: [deepseek/deepseek-v4-flash]
+    provider: deepseek
+    tier: fast
+    data_policy: unknown
+    price: {input: 0.091, output: 0.182, cache_read: 0.0182}
+    source: *openrouter
+  - id: deepseek-v4.1-flash
+    aliases: [deepseek/deepseek-v4.1-flash]
+    provider: deepseek
+    tier: fast
+    data_policy: unknown
+    price: {input: 0.15, output: 0.60, cache_read: 0.003}
+    source: *openrouter
+  - id: deepseek-v4-pro
+    aliases: [deepseek/deepseek-v4-pro]
+    provider: deepseek
+    tier: strong
+    data_policy: unknown
+    price: {input: 0.2088, output: 0.4176, cache_read: 0.0174}
+    source: *openrouter
+  - id: glm-5.2
+    aliases: [z-ai/glm-5.2]
+    provider: z-ai
+    tier: strong
+    data_policy: unknown
+    price: {input: 0.62, output: 2.42, cache_read: 0.14}
+    source: *openrouter
+  - id: kimi-k3
+    aliases: [moonshotai/kimi-k3]
+    provider: moonshotai
+    tier: strong
+    data_policy: unknown
+    price: {input: 0.304, output: 11.936, cache_read: 0.21}
+    source: *openrouter
+  - id: mimo-v2.5-pro
+    aliases: [xiaomi/mimo-v2.5-pro]
+    provider: xiaomi
+    tier: fast
+    data_policy: unknown
+    price: {input: 0.435, output: 0.87, cache_read: 0.0036}
+    source: *openrouter
+  - id: muse-spark-1.3-contributor
+    aliases: [meta/muse-spark-1.3-contributor]
+    provider: meta
+    tier: fast
+    data_policy: unknown
+    price: {input: 0.10, output: 0.20, cache_read: 0.002}
+    source: *openrouter
+  - id: minimax-m2.5
+    aliases: [minimax/minimax-m2.5, "minimax-m2.5:cloud"]
+    provider: minimax
+    tier: fast
+    data_policy: unknown
+    price: {input: 0.27, output: 0.95, cache_read: 0.03}
+    source: *openrouter
+
+# Flat plans. List prices only; which tier the user holds is not in the logs.
+plans:
+  - id: chatgpt
+    upstreams: [codex-router-signed, openai]
+    harness: codex
+    tiers: {go: 8, plus: 20, pro: 100, pro-200: 200, pro-500: 500}
+    source: *chatgpt
+  - id: opencode-go
+    upstreams: [opencode-go]
+    harness: opencode
+    tiers: {go: 10, go-plus: 40}
+    source: *opencode_go
+  # Claude Code's transcripts do not say whether a call billed to a plan or an
+  # API key; subs labels this plan "if on a plan". The page lists Max only as
+  # "from $100", so higher Max tiers are not shown and would lower the ratio.
+  - id: claude
+    upstreams: [anthropic]
+    harness: claude-code
+    tiers: {pro: 20, max: 100}
+    source: https://claude.com/pricing

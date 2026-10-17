@@ -21,6 +21,10 @@ type claudeLine struct {
 			CacheWrite int64 `json:"cache_creation_input_tokens"`
 			CacheRead  int64 `json:"cache_read_input_tokens"`
 			Output     int64 `json:"output_tokens"`
+			Creation   struct {
+				OneHour int64 `json:"ephemeral_1h_input_tokens"`
+				FiveMin int64 `json:"ephemeral_5m_input_tokens"`
+			} `json:"cache_creation"`
 		} `json:"usage"`
 	} `json:"message"`
 }
@@ -45,18 +49,19 @@ func ClaudeCode(root string, w Window) ([]Usage, error) {
 			return true
 		}
 		u := Usage{
-			Harness:    "claude-code",
-			Upstream:   "anthropic",
-			Model:      m.Model,
-			Session:    l.SessionID,
-			Time:       l.Timestamp,
-			Billing:    BillingUnknown, // API key or Claude plan: not in the transcript
-			Delegated:  l.IsSidechain || slices.Contains(splitPath(rel), "subagents"),
-			Calls:      1,
-			Input:      m.Usage.Input,
-			CacheRead:  m.Usage.CacheRead,
-			CacheWrite: m.Usage.CacheWrite,
-			Output:     m.Usage.Output,
+			Harness:      "claude-code",
+			Upstream:     "anthropic",
+			Model:        m.Model,
+			Session:      l.SessionID,
+			Time:         l.Timestamp,
+			Billing:      BillingUnknown, // API key or Claude plan: not in the transcript
+			Delegated:    l.IsSidechain || slices.Contains(splitPath(rel), "subagents"),
+			Calls:        1,
+			Input:        m.Usage.Input,
+			CacheRead:    m.Usage.CacheRead,
+			CacheWrite:   max(m.Usage.CacheWrite, m.Usage.Creation.OneHour+m.Usage.Creation.FiveMin),
+			CacheWrite1h: m.Usage.Creation.OneHour,
+			Output:       m.Usage.Output,
 		}
 		u.clamp()
 		prev, seen := byID[m.ID]

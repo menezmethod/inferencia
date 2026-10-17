@@ -42,8 +42,11 @@ type Usage struct {
 	Input      int64 // uncached input tokens
 	CacheRead  int64
 	CacheWrite int64
-	Output     int64 // includes reasoning tokens
-	Reasoning  int64 // the reasoning part of Output, when the log reports it
+	// CacheWrite1h is the part of CacheWrite written to Anthropic's 1-hour
+	// cache, which costs more than the 5-minute default.
+	CacheWrite1h int64
+	Output       int64 // includes reasoning tokens
+	Reasoning    int64 // the reasoning part of Output, when the log reports it
 
 	CostUSD float64 // computed by the harness from its own price table
 	HasCost bool
@@ -51,9 +54,10 @@ type Usage struct {
 
 // clamp zeroes negative token counts, which only a corrupt log can produce.
 func (u *Usage) clamp() {
-	for _, p := range []*int64{&u.Input, &u.CacheRead, &u.CacheWrite, &u.Output, &u.Reasoning} {
+	for _, p := range []*int64{&u.Input, &u.CacheRead, &u.CacheWrite, &u.CacheWrite1h, &u.Output, &u.Reasoning} {
 		*p = max(*p, 0)
 	}
+	u.CacheWrite1h = min(u.CacheWrite1h, u.CacheWrite)
 }
 
 // Window bounds a report in time. A zero bound is open. Both bounds are inclusive.
@@ -84,7 +88,8 @@ type Totals struct {
 	CostCalls  int // calls that carried a harness-computed cost
 }
 
-func (t *Totals) add(u Usage) {
+// Add adds one record to the totals.
+func (t *Totals) Add(u Usage) {
 	t.Calls += u.Calls
 	t.Input += u.Input
 	t.CacheRead += u.CacheRead
@@ -101,7 +106,7 @@ func (t *Totals) add(u Usage) {
 func Sum(us []Usage) Totals {
 	var t Totals
 	for _, u := range us {
-		t.add(u)
+		t.Add(u)
 	}
 	return t
 }
@@ -133,7 +138,7 @@ func Summarize(us []Usage) map[Key]Totals {
 	for _, u := range us {
 		k := Key{u.Harness, u.Upstream, u.Model, u.Billing, u.Delegated}
 		t := out[k]
-		t.add(u)
+		t.Add(u)
 		out[k] = t
 	}
 	return out

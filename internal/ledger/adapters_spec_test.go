@@ -224,3 +224,15 @@ INSERT INTO message VALUES
 		Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 	})
 })
+
+var _ = Describe("ClaudeCode cache writes", func() {
+	It("records the 1-hour part of cache writes", func() {
+		root := GinkgoT().TempDir()
+		line := `{"type":"assistant","sessionId":"s","timestamp":"2026-09-01T00:00:00Z","message":{"id":"m","model":"x","usage":{"input_tokens":1,"cache_creation_input_tokens":300,"cache_creation":{"ephemeral_1h_input_tokens":200,"ephemeral_5m_input_tokens":100}}}}` + "\n"
+		Expect(os.WriteFile(filepath.Join(root, "s.jsonl"), []byte(line), 0o644)).To(Succeed())
+		us, err := ClaudeCode(root, Window{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(us[0].CacheWrite).To(Equal(int64(300)))
+		Expect(us[0].CacheWrite1h).To(Equal(int64(200)))
+	})
+})

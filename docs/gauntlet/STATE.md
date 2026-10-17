@@ -26,16 +26,16 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| S2-1 | catalog.yaml with sourced prices | TODO | |
-| S2-2 | One price function, fail loud on unknown model | TODO | |
-| S2-3 | `inferencia savings` (counterfactuals with range) | TODO | |
-| S2-4 | `inferencia subs` (API-equivalent value per plan) | TODO | |
+| S2-1 | catalog.yaml with sourced prices | DONE | [S2](evidence/S2.md) |
+| S2-2 | One price function, fail loud on unknown model | DONE | [S2](evidence/S2.md) |
+| S2-3 | `inferencia savings` (counterfactuals with range) | DONE | [S2](evidence/S2.md) |
+| S2-4 | `inferencia subs` (API-equivalent value per plan) | DONE | [S2](evidence/S2.md) |
 
 ## S3 Experiments (Gate 1 inputs)
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| E1 | Ledger vs a billed source | TODO | |
+| E1 | Ledger vs a billed source | SKIPPED-NO-BILL (no API key in the shell) | |
 | E2 | Offline replay under 4 policies | TODO | |
 | E3-suite | Task suite with hidden tests (30+) | TODO | |
 | E3a | Pilot: 30 tasks x 3 arms | TODO | |
@@ -79,3 +79,5 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 
 - 2026-10-17: S0 done. Baseline green.
 - 2026-10-17: S1 done. Golden numbers match for OpenCode, Codex, Command Code. Findings F1 (Claude retention), F2 (Haiku calls now appear).
+- 2026-10-17: S2 done. Findings F3-F6 (plans worth 25-31x at list prices; price tables disagree).
+- 2026-10-17: E1 skipped: no billed source reachable (no OpenRouter or provider key exported).
