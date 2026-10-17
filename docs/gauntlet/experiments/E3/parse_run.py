@@ -52,7 +52,13 @@ def main():
     stream, task, arm, accepted, secs, code, run = sys.argv[1:8]
     dispatch_log = sys.argv[8] if len(sys.argv) > 8 else ""
     home = os.path.expanduser("~")
-    allowed = [os.path.realpath(run), os.path.normpath(run), os.path.join(home, "go", "pkg", "mod"), "/tmp", "/dev"]
+    real = os.path.realpath(run)
+    # Allowed: the run, the module cache, the run's own Go cache, and the run's own
+    # Claude Code project dir, where the client saves large tool outputs that the
+    # model then reads back (its own session's data, not another run's).
+    allowed = [real, os.path.normpath(run), os.path.join(home, "go", "pkg", "mod"), "/tmp", "/dev",
+               os.path.join(os.path.dirname(os.path.dirname(real)), "gocache-" + os.path.basename(real)),
+               os.path.join(home, ".claude", "projects", re.sub(r"[^A-Za-z0-9]", "-", real))]
     result, by_msg, quota, leaks = {}, {}, 0, 0
     worker = {"input": 0, "cache_read": 0, "output": 0}
     worker_models = set()
