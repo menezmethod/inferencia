@@ -15,12 +15,12 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| S1-1 | Usage record + Claude Code adapter | TODO | |
-| S1-2 | Codex CLI adapter | TODO | |
-| S1-3 | OpenCode adapter (sqlite3, read-only) | TODO | |
-| S1-4 | Command Code adapter | TODO | |
-| S1-5 | `inferencia measure` command + report | TODO | |
-| S1-6 | Golden numbers check (4 sources) | TODO | |
+| S1-1 | Usage record + Claude Code adapter | DONE | [S1](evidence/S1.md) |
+| S1-2 | Codex CLI adapter | DONE | [S1](evidence/S1.md) |
+| S1-3 | OpenCode adapter (sqlite3, read-only) | DONE | [S1](evidence/S1.md) |
+| S1-4 | Command Code adapter | DONE | [S1](evidence/S1.md) |
+| S1-5 | `inferencia measure` command + report | DONE | [S1](evidence/S1.md) |
+| S1-6 | Golden numbers check (4 sources) | DONE | [S1](evidence/S1.md) |
 
 ## S2 Catalog and savings (P0)
 
@@ -78,3 +78,4 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 ## Log
 
 - 2026-10-17: S0 done. Baseline green.
+- 2026-10-17: S1 done. Golden numbers match for OpenCode, Codex, Command Code. Findings F1 (Claude retention), F2 (Haiku calls now appear).

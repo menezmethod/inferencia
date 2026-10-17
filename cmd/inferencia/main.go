@@ -22,6 +22,14 @@ import (
 )
 
 func main() {
+	// Subcommands run and exit; with none, the binary serves the gateway.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "measure":
+			os.Exit(runMeasure(os.Args[2:], os.Stdout, os.Stderr))
+		}
+	}
+
 	configPath := flag.String("config", "", "path to config.yaml (optional, env vars work without it)")
 	flag.Parse()
 

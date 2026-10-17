@@ -31,3 +31,13 @@ use synthetic fixtures and always run. The golden check runs only when
   runs on PASS, or on PROVISIONAL in shadow mode only.
 - The second "FAIL:" line under Gate 1 is a duplicate of the first; both mean skip S4 and S5,
   then do S6.
+
+## D5. Claude Code transcript retention loses ledger history (2026-10-17)
+
+Finding F1 (evidence/S1.md): the Claude transcripts on disk cover only 23 days up to
+2026-09-30, so `measure` finds 6,713 calls where the 2026-09-30 analysis found 12,247. Claude
+Code deletes old transcripts. Two fixes:
+1. The user raises Claude Code's transcript retention setting (`cleanupPeriodDays`). The
+   gauntlet does not change user settings; this is a recommendation in the final report.
+2. When the ledger becomes persistent (S4, with the SQLite driver from D2), `measure` stores
+   normalized Usage records (tokens, model names, times; no text) so history outlives the logs.
