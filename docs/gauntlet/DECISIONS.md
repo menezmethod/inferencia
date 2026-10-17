@@ -41,3 +41,21 @@ Code deletes old transcripts. Two fixes:
    gauntlet does not change user settings; this is a recommendation in the final report.
 2. When the ledger becomes persistent (S4, with the SQLite driver from D2), `measure` stores
    normalized Usage records (tokens, model names, times; no text) so history outlives the logs.
+
+## D6. E3 tests are the visible spec, restored before grading (2026-10-17)
+
+The smoke run showed that commit messages leave API shapes unstated: T01's hidden test expects a
+field `Think *bool`, the message only says "support Ollama think control", and both arms built a
+reasonable `json.RawMessage` instead. Grading unstated API shapes measures guessing. So each task
+shows its test files as the spec ("must pass, do not edit"), and grading restores the original test
+files before running them, so editing a test cannot make a task pass. All arms see the same
+information, so the paired comparison stays fair. This departs from the gauntlet's "hidden tests";
+the tests are still the grader.
+
+## D7. Claude Code bills to a plan, and its stream reports quota (2026-10-17)
+
+`claude -p --output-format stream-json` emits `rate_limit_event` records with the plan's 5-hour and
+7-day utilization (0.21 and 0.10 during the smoke run). That settles finding "Claude billing
+unknown": Claude Code runs on a Claude plan. It also gives subscription-first dispatch a quota
+signal from the official client itself. The E3 pilot driver uses it: it sleeps when the 5-hour
+window passes 85% and stops when the 7-day window passes 60%, to leave the user plan capacity.

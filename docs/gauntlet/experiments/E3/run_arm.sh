@@ -5,7 +5,10 @@
 #   <workdir> is the build_suite.sh workdir (it holds suite.tsv and the clones).
 #
 # The task repo is the parent commit's files in a fresh git repo with no
-# history, so the answer commit cannot be read from git. The arm runs through
+# history, so the answer commit cannot be read from git. The commit's test
+# files are copied in as the visible spec (D6): commit messages leave API
+# shapes unstated. Grading restores the original test files first, so editing
+# a test cannot make a task pass. The arm runs through
 # the official client (`claude -p`) under the user's plan: no inferencia in
 # the request path (hard rule 2). Grading copies the commit's test files in
 # and runs them in the build_suite.sh sandbox.
@@ -33,13 +36,23 @@ git -C "$repo" archive "$parent" | tar -x -C "$run"
 git -C "$run" init -q && git -C "$run" add -A
 git -C "$run" -c user.email=e3@local -c user.name=e3 commit -qm "task start"
 
+tests=$(git -C "$repo" diff --name-only --diff-filter=AM "$parent" "$commit" -- '*_test.go')
+put_tests() {
+  for f in $tests; do
+    mkdir -p "$run/$(dirname "$f")"
+    git -C "$repo" show "$commit:$f" > "$run/$f"
+  done
+}
+put_tests
 spec=$(git -C "$repo" log -1 --format=%B "$commit")
 prompt="You are in a Go repository. Implement this change:
 
 $spec
 
+These test files describe the required behavior. They must pass, and you must not edit them:
+$(printf '  %s\n' $tests)
 Work only in this directory. Keep existing behavior unless the change requires otherwise.
-Add or update tests where useful. Before you finish, run go build ./... and go test ./... .
+Before you finish, run go build ./... and go test on the packages above.
 Do not ask questions; make reasonable choices. When the change is done, reply DONE."
 
 tools=(Read Edit Write Glob Grep Task "Bash(go:*)" "Bash(gofmt:*)" "Bash(ls:*)" "Bash(git diff:*)" "Bash(git status:*)")
@@ -75,11 +88,8 @@ exit_code=$?
 set -e
 secs=$(( $(date +%s) - start ))
 
-# Grade: put the hidden tests in place and run them in the sandbox.
-for f in $(git -C "$repo" diff --name-only --diff-filter=AM "$parent" "$commit" -- '*_test.go'); do
-  mkdir -p "$run/$(dirname "$f")"
-  git -C "$repo" show "$commit:$f" > "$run/$f"
-done
+# Grade: restore the original test files and run them in the sandbox.
+put_tests
 gobin="$(go env GOROOT)/bin/go"
 accepted=0
 (cd "$run" && env -i "PATH=$PATH" "HOME=$workdir/home" "GOCACHE=$workdir/gocache" \
