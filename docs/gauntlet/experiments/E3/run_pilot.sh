@@ -81,6 +81,8 @@ for id in $ids; do
   done
   read -r action wait_s rest <<<"$(guard "$id")"
   echo "$id done; plan $rest"
+  # Keep a durable copy (aggregates only) so a crash cannot lose finished tasks.
+  [[ -n "${E3_COPY_TO:-}" ]] && cp "$results" "$E3_COPY_TO"
   case "$action" in
     nosignal) echo "STOP: no plan utilization signal; cannot guard the quota. Resume: $0 $workdir $results <next id>"; exit 3 ;;
     stop) echo "STOP: 7-day plan utilization at or above $max7d. Resume later: $0 $workdir $results <next id>"; exit 3 ;;
