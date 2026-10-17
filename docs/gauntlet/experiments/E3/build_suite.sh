@@ -25,7 +25,10 @@ workdir=$1
 candidates=$2
 mkdir -p "$workdir"
 out="$workdir/suite.tsv"
-printf 'id\trepo\tcommit\tparent\tpackages\tverdict\tregress\n' > "$out"
+first=${E3_FIRST_ID:-1} # resume: number ids from here and append to an existing suite
+if [[ $first == 1 ]]; then
+  printf 'id\trepo\tcommit\tparent\tpackages\tverdict\tregress\n' > "$out"
+fi
 
 modcache=$(go env GOMODCACHE)
 gobin="$(go env GOROOT)/bin/go" # the toolchain go.mod selects; a bare PATH may find an older go
@@ -43,7 +46,7 @@ spec_files() {
   git -C "$1" diff --name-only --diff-filter=AM "$2" "$3" | grep -E '(_test\.go$|(^|/)testdata/)' || true
 }
 
-n=0
+n=$((first - 1))
 while IFS=$'\t' read -r repo commit; do
   [[ -z "$repo" || "$repo" == \#* ]] && continue
   n=$((n + 1))
@@ -53,7 +56,7 @@ while IFS=$'\t' read -r repo commit; do
   repo=$clone
   parent=$(git -C "$repo" rev-parse "$commit^")
   files=$(spec_files "$repo" "$parent" "$commit")
-  pkgs=$(for f in $files; do [[ $f == *_test.go ]] && echo "./$(dirname "$f")"; done | sort -u | tr '\n' ' ')
+  pkgs=$( (grep '_test\.go$' <<<"$files" || true) | while read -r f; do echo "./$(dirname "$f")"; done | sort -u | tr '\n' ' ')
   wt="$workdir/wt-$id"
   rm -f "$wt.log"
   git -C "$repo" worktree add --detach --force "$wt" "$commit" >/dev/null 2>&1

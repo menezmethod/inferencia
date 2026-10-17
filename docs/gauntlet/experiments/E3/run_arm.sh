@@ -72,7 +72,7 @@ print(json.dumps({"sandbox": {
     "network": {"allowedDomains": [], "strictAllowlist": True}}}))
 PY
 )
-tools=(Bash "Edit(./**)" "Write(./**)" Task)
+tools=(Bash "Edit(./**)" Task)
 mcp='{"mcpServers":{}}'
 
 profile="$logs.sb"
@@ -133,11 +133,14 @@ find "$run" -name '*_test.go' -not -path '*/.git/*' -delete
 find "$run" -type d -name testdata -not -path '*/.git/*' -prune -exec rm -rf {} +
 suite_files=$(git -C "$repo" ls-tree -r --name-only "$commit" | grep -E '(_test\.go$|(^|/)testdata/)' || true)
 [[ -n "$suite_files" ]] && git -C "$repo" archive "$commit" -- $suite_files | tar -x -C "$run"
-gate_pkgs="$pkgs $(tr ',' ' ' <<<"$regress")"
+regress_pkgs=$(tr ',' ' ' <<<"$regress")
 accepted=0
+# The task's packages get one run. Regression packages get up to three, because some
+# old commits carry a flaky test (the router round-robin bug fixed in 4473f88).
 (cd "$run" && sandbox-exec -f "$profile" env -i "PATH=$goroot/bin:/usr/bin:/bin" "HOME=$run" "GOCACHE=$gocache" \
   "GOMODCACHE=$modcache" GOFLAGS=-mod=readonly GOPROXY=off GOTOOLCHAIN=local CGO_ENABLED=0 \
-  sh -c "go build ./... && go test -count=1 $gate_pkgs" > "$logs.grade.log" 2>&1) && accepted=1
+  sh -c "go build ./... && go test -count=1 $pkgs && { go test -count=1 $regress_pkgs || go test -count=1 $regress_pkgs || go test -count=1 $regress_pkgs; }" \
+  > "$logs.grade.log" 2>&1) && accepted=1
 
 python3 -I "$here/parse_run.py" "$logs.stream.jsonl" "$id" "$arm" "$accepted" "$secs" "$exit_code" "$run" "$logs.dispatches.jsonl" >> "$results"
 rm -rf "$gocache"

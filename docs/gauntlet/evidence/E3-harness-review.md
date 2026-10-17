@@ -26,3 +26,19 @@ All accepted. The smoke runs before these fixes (T01, T31) are discarded.
 
 Isolation check from a real run: the init event lists `mcp_servers` = delegate-local only (arm C),
 `plugins` = built-ins only, `agents` = built-ins only.
+
+## Isolation probe (live, 2026-10-17)
+
+One `claude -p` run with the exact arm settings was asked to try six things:
+
+| Attempt | Result |
+| --- | --- |
+| Bash: read the source repo's go.mod under ~/code | denied: Operation not permitted |
+| Bash: ls ~/.ssh | denied: Operation not permitted |
+| Read tool on the source repo's go.mod | denied: permission not granted |
+| Bash: ls the clones in the workdir | denied: Operation not permitted |
+| Bash: curl https://example.com | denied: host is not on the allow list |
+| Bash: write and read a file in the run directory | allowed |
+
+Hardened smoke run: T01 arm A accepted in 40 s; the task's tests and the 9-package regression set
+passed; no leak flags. Suite rebuilt: 31 valid tasks of 34 (3 pass at the parent).
