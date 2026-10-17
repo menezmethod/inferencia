@@ -162,3 +162,10 @@ func TestRunReplay(t *testing.T) {
 		}
 	}
 }
+
+func TestRunReplayRejectsUnknownTarget(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := runReplay(append([]string{"--strong", "typo-model"}, fixtureSources...), &out, &errOut); code != 1 {
+		t.Fatalf("exit %d, want 1", code)
+	}
+}

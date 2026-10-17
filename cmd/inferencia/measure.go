@@ -252,6 +252,12 @@ func runReplay(args []string, stdout, stderr io.Writer) int {
 	if *fast == "" {
 		*fast = picks["fast"]
 	}
+	for _, id := range []string{*strong, *fast} {
+		if _, err := cat.Lookup(id); id != "" && err != nil {
+			fmt.Fprintf(stderr, "replay: %v\n", err) // a typo must not print a $0 policy
+			return 1
+		}
+	}
 	frontier := map[string]bool{}
 	for _, m := range cat.Models {
 		if m.Tier == "frontier" {

@@ -34,6 +34,7 @@ type Usage struct {
 	Upstream  string // who served the call: anthropic, openai, opencode-go, openrouter, ...
 	Model     string
 	Session   string
+	Agent     string // subagent within the session (Claude Code subagent file), "" for the main loop
 	Time      time.Time
 	Billing   Billing
 	Delegated bool // made by a subagent or child session

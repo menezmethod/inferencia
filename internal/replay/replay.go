@@ -33,23 +33,26 @@ type Result struct {
 // (or plain input where the model has no write price) instead of a cache read.
 // A switch the recorded run already made is already in its token counts.
 //
-// A session is (harness, session id, delegated): Claude Code subagent calls
-// share their parent's session id but have their own conversation and cache.
+// A conversation is (harness, session id, agent, delegated): Claude Code
+// subagents share their parent's session id but each has its own
+// conversation and cache. Models are compared by catalog id, so an alias is
+// not a switch. Only single-call records can switch: a Codex record is a whole
+// session, so there is no turn boundary inside it to switch at. The re-written
+// tokens go to the 1-hour cache when the recorded call used it.
 func Run(c *catalog.Catalog, us []ledger.Usage, name string, p Policy) (Result, error) {
 	calls := slices.Clone(us)
 	slices.SortStableFunc(calls, func(a, b ledger.Usage) int {
 		return cmp.Or(cmp.Compare(a.Harness, b.Harness), cmp.Compare(a.Session, b.Session), a.Time.Compare(b.Time))
 	})
 	r := Result{Name: name}
-	prev := map[string]string{}    // session key -> policy model of its last call
-	prevRun := map[string]string{} // session key -> recorded model of its last call
+	prev := map[string]string{}    // conversation -> catalog id of the policy model of its last call
+	prevRun := map[string]string{} // conversation -> catalog id of the recorded model of its last call
 	for _, u := range calls {
-		key := u.Harness + "\x00" + u.Session
+		key := u.Harness + "\x00" + u.Session + "\x00" + u.Agent
 		if u.Delegated {
 			key += "\x00sub"
 		}
-		model := p(u, prev[key])
-		m, err := c.Lookup(model)
+		m, err := c.Lookup(p(u, prev[key]))
 		if err == nil {
 			_, err = m.CostAs(u) // probe: is this usage priceable on m?
 		}
@@ -60,19 +63,26 @@ func Run(c *catalog.Catalog, us []ledger.Usage, name string, p Policy) (Result, 
 		if err != nil {
 			return Result{}, err
 		}
+		run := u.Model
+		if rm, err := c.Lookup(u.Model); err == nil {
+			run = rm.ID
+		}
 		base, _ := m.CostAs(u)
 		cost := base
-		if last := prev[key]; last != "" && last != model && prevRun[key] == u.Model {
-			r.Switches += u.Calls
+		if last := prev[key]; u.Calls == 1 && last != "" && last != m.ID && prevRun[key] == run {
+			r.Switches++
 			lost := u
 			lost.CacheWrite += lost.CacheRead
+			if u.CacheWrite1h > 0 {
+				lost.CacheWrite1h += lost.CacheRead
+			}
 			lost.CacheRead = 0
 			if cost, err = m.CostAs(lost); err != nil {
 				return Result{}, err
 			}
 			r.CacheLossUSD += cost - base
 		}
-		prev[key], prevRun[key] = model, u.Model
+		prev[key], prevRun[key] = m.ID, run
 		r.USD += cost
 		r.Calls += u.Calls
 	}

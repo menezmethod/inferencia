@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -48,7 +49,12 @@ func ClaudeCode(root string, w Window) ([]Usage, error) {
 		if l.Type != "assistant" || m.Usage == nil || m.ID == "" || m.Model == "<synthetic>" || !w.Contains(l.Timestamp) {
 			return true
 		}
+		agent := ""
+		if slices.Contains(splitPath(rel), "subagents") {
+			agent = strings.TrimSuffix(filepath.Base(rel), ".jsonl")
+		}
 		u := Usage{
+			Agent:        agent,
 			Harness:      "claude-code",
 			Upstream:     "anthropic",
 			Model:        m.Model,
