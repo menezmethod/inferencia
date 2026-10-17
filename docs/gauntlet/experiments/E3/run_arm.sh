@@ -40,7 +40,7 @@ run="$workdir/runs/$id-$arm"
 logs="$workdir/logs/$id-$arm"
 gocache="$workdir/gocache-$id-$arm"
 mkdir -p "$workdir/logs"
-rm -rf "$run" "$gocache" "$logs".* && mkdir -p "$run" "$gocache"
+rm -rf "$run" "$gocache" "$logs".* && mkdir -p "$run" "$gocache" "$logs.d"
 git -C "$repo" archive "$parent" | tar -x -C "$run"
 
 spec=$(git -C "$repo" diff --name-only --diff-filter=AM "$parent" "$commit" | grep -E '(_test\.go$|(^|/)testdata/)' || true)
@@ -82,7 +82,7 @@ cat > "$profile" <<EOF
 (deny file-read* file-write*
   (subpath "$HOME/.ssh") (subpath "$HOME/code") (subpath "$HOME/.claude/projects")
   (literal "$HOME/.claude.json") (subpath "$workdir"))
-(allow file-read* file-write* (subpath "$run") (subpath "$gocache") (literal "$logs.dispatches.jsonl"))
+(allow file-read* file-write* (subpath "$run") (subpath "$gocache") (subpath "$logs.d"))
 EOF
 
 case "$arm" in
@@ -94,7 +94,7 @@ case "$arm" in
     launcher="$logs.mcp.sh"
     cat > "$launcher" <<EOF
 #!/usr/bin/env bash
-export DELEGATE_LOG_PATH="$logs.dispatches.jsonl"
+export DELEGATE_LOG_PATH="$logs.d/dispatches.jsonl"
 export GOCACHE="$gocache" GOFLAGS=-mod=readonly GOPROXY=off GOTOOLCHAIN=local PATH="$goroot/bin:\$PATH"
 exec sandbox-exec -f "$profile" "$HOME/AI/cc-delegate/bin/run-mcp.sh"
 EOF
@@ -142,6 +142,6 @@ accepted=0
   sh -c "go build ./... && go test -count=1 $pkgs && { go test -count=1 $regress_pkgs || go test -count=1 $regress_pkgs || go test -count=1 $regress_pkgs; }" \
   > "$logs.grade.log" 2>&1) && accepted=1
 
-python3 -I "$here/parse_run.py" "$logs.stream.jsonl" "$id" "$arm" "$accepted" "$secs" "$exit_code" "$run" "$logs.dispatches.jsonl" >> "$results"
+python3 -I "$here/parse_run.py" "$logs.stream.jsonl" "$id" "$arm" "$accepted" "$secs" "$exit_code" "$run" "$logs.d/dispatches.jsonl" >> "$results"
 rm -rf "$gocache"
 echo "$id $arm accepted=$accepted secs=$secs exit=$exit_code"
