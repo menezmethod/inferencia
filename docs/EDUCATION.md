@@ -1,7 +1,8 @@
 # Inferencia v4: a senior developer's guide
 
-> Written at the end of the v4 gauntlet (2026-10-17, branch `gauntlet/v4`). Every number links to an
-> evidence file. Dollar figures are list-price, API-equivalent estimates unless a line says otherwise;
+> Written at the end of the v4 gauntlet (2026-10-17, branch `gauntlet/v4`). Numbers link to their
+> evidence where they first appear; the summary repeats figures from [GATE1](gauntlet/GATE1.md),
+> [E2](gauntlet/experiments/E2/README.md) and [E4](gauntlet/experiments/E4/README.md). Dollar figures are list-price, API-equivalent estimates unless a line says otherwise;
 > they are not bills (the bill check, E1, was skipped: no API key was available).
 
 **The short version.** Inferencia v4 is a read-only cost ledger for AI coding work across Claude Code,
@@ -50,7 +51,8 @@ request path:
 ```mermaid
 flowchart LR
   H[Any harness<br/>base URL swap] --> I{Ingress<br/>OpenAI Chat / Anthropic Messages}
-  I --> RT[Route func<br/>sticky per session, role floor,<br/>data policy, budget]
+  I --> CN[[Canonical request<br/>N + M adapters]]
+  CN --> RT[Route func<br/>sticky per session, role floor,<br/>data policy, budget]
   RT --> EG{Egress<br/>same format: byte-stable pass-through<br/>else translate}
   EG --> UP[Upstreams<br/>Anthropic, OpenAI-compatible:<br/>OpenAI, OpenRouter, DeepSeek, Ollama...]
   UP -->|usage| L[(ledger)]
@@ -85,18 +87,20 @@ sequenceDiagram
 | One price function that fails loud | Default unknown prices to $0 | A wrong total cannot hide | Reports list unpriced models you must add | [S2](gauntlet/evidence/S2.md) |
 | A source URL on every price | Hard-coded prices, a pricing API | Every number is auditable | Prices go stale; `as_of` says how stale | [catalog.yaml](../internal/catalog/catalog.yaml) |
 | Split 5-minute and 1-hour cache writes | One cache-write price | Claude Code writes the 1-hour cache at 2x input, not 1.25x | One more field | [S2](gauntlet/evidence/S2.md) |
-| Long-context prices per request | Ignore them | Haiku 5.5 costs 5x over 100k prompt tokens; most coding calls are over | Per-call average for whole-session Codex records | [S2](gauntlet/evidence/S2.md) |
+| Long-context prices per request | Ignore them | Haiku 5.5 costs 5x over 100k prompt tokens; about 90% of Claude Code calls are over | Per-call average for whole-session Codex records | [S2](gauntlet/evidence/S2.md) |
 | Sticky per session, switch only on failover | Route per call | A naive per-call router cost 1.16x of no router with an expensive target | Gives up per-call savings | [E2](gauntlet/experiments/E2/README.md) |
 | Rules before a learned scorer (Laya/Jev) | A learned router in the hot path | Explainable (`why <id>`), no model call to route | May leave savings unclaimed | [plan](PLAN_V4.md) |
 | Temporal's semantics in a SQLite step log | Run Temporal | One binary on a Pi; resume never re-spends tokens | No multi-node workers | [plan](PLAN_V4.md), Durable execution |
 | Subscription-first through official clients | Proxy plan logins | Inside provider terms; plans are 25-31x value | Quota is a shared, invisible budget | [E4](gauntlet/experiments/E4/README.md) |
 | Fail-open means a default provider | Skip auth or budgets when degraded | Outages never become a cost attack | A default provider must be configured | [plan](PLAN_V4.md), Security |
 | Tests as the visible spec in E3 | Hidden tests on unstated API shapes | Measures engineering, not guessing | Agents see the target behavior | [D6](gauntlet/DECISIONS.md) |
-| Gate before building | Build S4/S5 anyway | Saved the gateway and delegate engine weeks of work | The router is still a design | [GATE1](gauntlet/GATE1.md) |
+| Gate before building | Build S4/S5 anyway | Avoided building the gateway and delegate engine for a saving the pilot did not find | The router is still a design | [GATE1](gauntlet/GATE1.md) |
+| One canonical request format, N + M adapters (designed) | A translator per harness-provider pair (N x M) | Adding a harness or a provider is one adapter | Translation fidelity must be proven per pair (E8) | [plan](PLAN_V4.md), Where inferencia sits |
+| No persistent ledger yet; read the logs each run | A SQLite ledger now | Nothing to migrate or corrupt; always matches the logs | History vanishes when a harness deletes logs (F1) | [D2, D5](gauntlet/DECISIONS.md) |
 
 ## 4. The Go interfaces
 
-The shipped code has **no interfaces at all**. Every adapter is `func(root string, w Window) ([]Usage,
+The v4 ledger code (`ledger`, `catalog`, `replay`) has **no interfaces**. Every adapter is `func(root string, w Window) ([]Usage,
 error)`; `Load` holds them in a slice of structs with a function field. Routing policies are values of
 `type Policy func(u ledger.Usage, prev string) string` (`replay.AsRun`, `Floor`, `MainOn`,
 `NaivePerCall`), testable without a router. The one place behavior varies by kind, the price, is data.
@@ -123,17 +127,25 @@ type Route func(r *Request, c []Candidate) []Candidate
 
 ### S1: what the logs say ([evidence](gauntlet/evidence/S1.md))
 
-27,508 calls and 6.46B input tokens across four harnesses (to 2026-10-17); cache reads are 97.6% of
-input. Golden numbers reproduce exactly for OpenCode (8,733 calls, $51.95), Codex (96.1% cache) and
-Command Code (504 calls, $3.33). Disproved: the plan's 12,247 Claude calls to 2026-09-30, because
-Claude Code deleted older transcripts (6,713 remain; finding F1).
+| Harness | Calls | Input tokens | Cache-read share | Harness $ |
+| --- | --- | --- | --- | --- |
+| claude-code | 14,877 | 4.12B | 98.2% | - |
+| codex | 3,394 events (8 sessions) | 444.9M | 96.1% | - |
+| opencode | 8,733 | 1.79B | 98.2% | $51.95 (mostly notional, plan) |
+| command-code | 504 | 95.1M | 70.1% | $3.32 |
+| all | 27,508 | 6.46B | 97.6% | partial |
+
+Golden numbers reproduce within 2% for OpenCode (8,733 calls, $51.95), Codex (96.1% cache) and Command
+Code (504 calls, $3.32 vs $3.33). Not reproducible: the plan's 12,247 Claude calls to 2026-09-30, because
+Claude Code deleted older transcripts (6,713 remain; finding F1). Threats: logs only, and a harness that
+logs no tokens (Gemini CLI) is invisible.
 
 ### E2: re-pricing recorded sessions under routing policies ([evidence](gauntlet/experiments/E2/README.md))
 
 ```mermaid
 xychart-beta
   title "E2: estimated $ for the same 23,732 calls (list price)"
-  x-axis ["as run", "delegated to strong", "main loop to opus-5-5", "main loop to strong", "naive router, cheap target", "naive router, opus target"]
+  x-axis ["as run", "deleg.", "main opus", "main strong", "naive cheap", "naive opus"]
   y-axis "USD" 0 --> 2300
   bar [1849, 1656, 1415, 750, 137, 2154]
 ```
@@ -148,7 +160,8 @@ xychart-beta
 | naive per-call router, claude-opus-5-5 target | 2,154 | 1.16x | 308 | 233 |
 
 Shown: the main-loop model is the lever; delegation alone moves about 10%; a router that switches models
-mid-conversation can cost more than no router. Not shown: quality, which a price replay cannot see.
+mid-conversation can cost more than no router. Threats: list prices; same token counts on another model;
+quality not modeled; default targets cherry-picked as cheapest on the same data.
 
 ### E3: the live paired pilot ([evidence](gauntlet/experiments/E3/README.md), [gate](gauntlet/GATE1.md))
 
@@ -170,6 +183,8 @@ xychart-beta
 Disproved: that delegation lowers cost per accepted task on this kind of work. Arm C's cost was 93% the
 Opus orchestrator, which spent 97% of what doing the change alone cost; the workers cost $1.65 in total.
 Also disproved: that routing subagents by config changes cost here; no B run spawned a subagent.
+Threats: small tasks (median 2 minutes); two repos; tests visible as the spec; two tasks unsolvable in
+every arm; API-equivalent cost, not a bill.
 
 ### E4: subscription value ([evidence](gauntlet/experiments/E4/README.md))
 
@@ -181,8 +196,9 @@ xychart-beta
   bar [30.1, 31.4, 6.3, 3.3]
 ```
 
-You are on OpenCode Go ($10): in July, Kimi K3 stopped at $15.05 of allowance, its Go cap. Subscription
--first dispatch would have avoided $10.73 of per-token spend that plans already covered.
+You are almost certainly on OpenCode Go ($10): in July, Kimi K3 stopped at $15.05 of allowance, its Go
+cap. Subscription-first dispatch would have avoided $10.73 of per-token spend that plans already covered.
+Threats: list prices; plan limits are published ranges; Claude's Max is listed only from $100.
 
 ### E1: ledger vs a bill: skipped
 
@@ -193,7 +209,7 @@ prices deepseek-v4-flash about 5x below OpenRouter's list ([S2](gauntlet/evidenc
 
 | | No inferencia (solo frontier) | Inferencia delegation (arm C) | Inferencia config routing (arm B) |
 | --- | --- | --- | --- |
-| Cost per accepted task | $0.86 | $0.86 (1.01x) | $0.88 (1.03x) |
+| Cost per accepted task ([GATE1](gauntlet/GATE1.md)) | $0.86 | $0.86 (1.01x) | $0.88 (1.03x) |
 | Accept rate | 87% | 90% | 87% |
 | Median time per task | 2.0 min | 3.9 min | 1.9 min |
 
@@ -214,13 +230,13 @@ used 21% of a 7-day Claude window.
 
 | Threat (OWASP LLM 2025) | Control | Test |
 | --- | --- | --- |
-| Logs leak secrets or prompts | Adapters decode into typed structs that drop text; reports print model names and counts; control characters stripped | `strips control characters`; no text fields in `Usage` |
-| Writing to a harness's data | Read-only file opens; OpenCode via `sqlite3 -readonly`, fixed query, message and session tables only | by construction; reviewed in [S1](gauntlet/evidence/S1.md) |
-| Credential tables | OpenCode's credential and account tables and every `auth.json` are never opened | [GAUNTLET.md](GAUNTLET.md) rule 9 |
+| Logs leak secrets or prompts (LLM02) | Adapters decode into typed structs that drop text; reports print model names and counts; control characters stripped | `strips control characters`; no text fields in `Usage` |
+| Writing to a harness's data (LLM06, excessive agency) | Read-only file opens; OpenCode via `sqlite3 -readonly`, fixed query, message and session tables only | design review only, no test ([S1](gauntlet/evidence/S1.md)) |
+| Credential tables (LLM02) | OpenCode's credential and account tables and every `auth.json` are never opened | rule only, no test ([GAUNTLET.md](GAUNTLET.md) rule 9) |
 | Cost attack (LLM10) | Unknown prices fail loud | `TestUnknownModelFailsLoud` |
-| Untrusted code in experiments | Fresh repos with no history; OS sandbox for the agent's shell (no reads under home, no network); `sandbox-exec` for workers and grading | live probe in [E3 review](gauntlet/evidence/E3-harness-review.md) |
-| Plan quota exhaustion | Pilot stops at 60% of the 7-day window; fails closed without a signal | [run_pilot.sh](gauntlet/experiments/E3/run_pilot.sh) |
-| Prompt injection, credential passthrough, SSRF, fail-open bypass | Gateway controls (designed, not built) | E9, skipped with S4 |
+| Untrusted code in experiments (LLM03, LLM05) | Fresh repos with no history; OS sandbox for the agent's shell (no reads under home, no network); `sandbox-exec` for workers and grading | live probe in [E3 review](gauntlet/evidence/E3-harness-review.md) |
+| Plan quota exhaustion (LLM10) | Pilot stops at 60% of the 7-day window; fails closed without a signal | [run_pilot.sh](gauntlet/experiments/E3/run_pilot.sh) |
+| Prompt injection (LLM01), credential passthrough (LLM02), SSRF, fail-open bypass (LLM10) | Gateway controls (designed, not built) | E9, skipped with S4 |
 
 ## 9. Questions a senior developer should ask
 
@@ -230,10 +246,12 @@ used 21% of a 7-day Claude window.
 - **What happens when a harness changes its log format?** The adapter counts unreadable lines
   (`PartialError`); `INFERENCIA_GOLDEN=1` catches silent drift.
 - **What does it cost to run?** Nothing: a CLI over local files. The E3 pilot cost about $71 of
-  API-equivalent plan usage and $0 of paid API.
-- **What breaks at 10x?** `measure` reads every log each run (2 s for 27,508 calls); at 10x it wants a
-  persistent ledger (D5).
-- **What history are you losing?** Claude Code deletes old transcripts; raise `cleanupPeriodDays` (F1).
+  API-equivalent plan usage, which includes $1.65 of DeepSeek worker tokens billed through Command Code's
+  provider API (an estimate at list price; [spend.csv](gauntlet/spend.csv)).
+- **What breaks at 10x?** `measure` reads every log each run (about 2 s for 27,508 calls,
+  [S1](gauntlet/evidence/S1.md)); at 10x it wants a persistent ledger ([D5](gauntlet/DECISIONS.md)).
+- **What history are you losing?** Claude Code deletes old transcripts; raise `cleanupPeriodDays`
+  ([F1](gauntlet/evidence/S1.md)).
 - **What else did the gauntlet find?** A real router bug: equal-load round-robin was not round-robin,
   because candidate order came from a map (fixed in 4473f88; F7).
 - **How do you delete it cleanly?** The reports write nothing. Remove the binary.
