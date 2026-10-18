@@ -38,42 +38,42 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 | E1 | Ledger vs a billed source | SKIPPED-NO-BILL (no API key in the shell) | |
 | E2 | Offline replay under 5 policies | DONE | [E2](experiments/E2/README.md), [review](evidence/E2-review.md) |
 | E3-suite | Task suite (30+) | DONE: 31 valid of 34, hardened harness | [suite](experiments/E3/suite.tsv), [review](evidence/E3-harness-review.md) |
-| E3a | Pilot: 31 tasks x 3 arms | IN-PROGRESS (started 2026-10-17 ~13:30 UTC) | |
-| E3b | Powered set | TODO | |
+| E3a | Pilot: 31 tasks x 3 arms | DONE | [E3](experiments/E3/README.md), [results](experiments/E3/results/pilot.csv) |
+| E3b | Powered set | SKIPPED-GATE (pilot cost upper bound 1.15, not below 0.9; quality already non-inferior) | [GATE1](GATE1.md) |
 | E4 | Subscription value + dispatch simulation | DONE | [E4](experiments/E4/README.md) |
-| GATE1 | Gate 1 decision (deadline 2026-11-11) | TODO | |
+| GATE1 | Gate 1 decision (deadline 2026-11-11) | DONE: FAIL | [GATE1](GATE1.md) |
 
 ## S4 Gateway (P1; PASS, or PROVISIONAL in shadow mode only)
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| S4-1 | Provider interface replaces Backend | TODO | |
-| S4-2 | Anthropic Messages ingress | TODO | |
-| S4-3 | Egress: Anthropic native, OpenAI-compatible, byte-stable pass-through | TODO | |
-| S4-4 | Sticky session routing | TODO | |
-| S4-5 | Failover + circuit breaker + typed errors | TODO | |
-| S4-6 | Budgets, shadow mode, why, off/on, fail-open | TODO | |
-| S4-7 | OTel GenAI attributes + route reason | TODO | |
-| E5 | Gateway overhead | TODO | |
-| E6 | Fault injection | TODO | |
-| E7 | Cache preservation | TODO | |
-| E8 | Conformance fixtures | TODO | |
-| E9 | Security tests, govulncheck, SBOM | TODO | |
+| S4-1 | Provider interface replaces Backend | SKIPPED-GATE | |
+| S4-2 | Anthropic Messages ingress | SKIPPED-GATE | |
+| S4-3 | Egress: Anthropic native, OpenAI-compatible, byte-stable pass-through | SKIPPED-GATE | |
+| S4-4 | Sticky session routing | SKIPPED-GATE | |
+| S4-5 | Failover + circuit breaker + typed errors | SKIPPED-GATE | |
+| S4-6 | Budgets, shadow mode, why, off/on, fail-open | SKIPPED-GATE | |
+| S4-7 | OTel GenAI attributes + route reason | SKIPPED-GATE | |
+| E5 | Gateway overhead | SKIPPED-GATE | |
+| E6 | Fault injection | SKIPPED-GATE | |
+| E7 | Cache preservation | SKIPPED-GATE | |
+| E8 | Conformance fixtures | SKIPPED-GATE | |
+| E9 | Security tests, govulncheck, SBOM | SKIPPED-GATE | |
 
 ## S5 Delegate engine (P2; Gate 1 PASS only)
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| S5-1 | SQLite step log, crash-resume test | TODO | |
-| S5-2 | Bundles, verify allowlist, sandboxed verify | TODO | |
-| S5-3 | Subscription-first dispatch | TODO | |
-| GATE2 | Gate 2 decision | TODO | |
+| S5-1 | SQLite step log, crash-resume test | SKIPPED-GATE | |
+| S5-2 | Bundles, verify allowlist, sandboxed verify | SKIPPED-GATE | |
+| S5-3 | Subscription-first dispatch | SKIPPED-GATE | |
+| GATE2 | Gate 2 decision | SKIPPED-GATE | |
 
 ## S6 Education document
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| S6 | docs/EDUCATION.md | TODO | |
+| S6 | docs/EDUCATION.md | IN-PROGRESS | |
 
 ## Log
 
@@ -87,3 +87,4 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 - 2026-10-17: F7: router round-robin bug (map order) fixed, 4473f88.
 - 2026-10-17: E3 harness hardened after review (3 blockers, 8 majors fixed); live isolation probe passed; pilot started. D6 (tests visible), D7 (Claude plan quota signal).
 - 2026-10-17: App restart wiped the session scratchpad; the first pilot run (11 of 31 tasks) and its results were lost. Interim read on 8 tasks before the loss: all arms 100% accepted; $/accepted vs A: B 1.16x, C 1.28x; B never used its subagent model. Pilot relaunched in /private/tmp/inferencia-e3 with results copied to experiments/E3/results/pilot.csv after every task.
+- 2026-10-17: E3 pilot complete (31 tasks, 7-day plan use 21%). Gate 1 FAIL: delegation matched solo on quality (non-inferior) and cost (1.01x, upper bound 1.15); config routing had no effect. S4/S5 skipped. Doing S6.
