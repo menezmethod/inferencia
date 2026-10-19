@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"regexp"
 	"strings"
 	"testing"
@@ -167,5 +168,25 @@ func TestRunReplayRejectsUnknownTarget(t *testing.T) {
 	var out, errOut bytes.Buffer
 	if code := runReplay(append([]string{"--strong", "typo-model"}, fixtureSources...), &out, &errOut); code != 1 {
 		t.Fatalf("exit %d, want 1", code)
+	}
+}
+
+type failWriter struct{}
+
+func (failWriter) Write(p []byte) (int, error) {
+	return 0, io.ErrClosedPipe
+}
+
+func TestFootnoteWriterFailureExitsOne(t *testing.T) {
+	var errOut bytes.Buffer
+	fw := failWriter{}
+	if code := runSavings(append([]string{"--as", "cheap-test"}, fixtureSources...), fw, &errOut); code != 1 {
+		t.Errorf("runSavings with failing stdout: exit %d, want 1", code)
+	}
+	if code := runSubs(fixtureSources, fw, &errOut); code != 1 {
+		t.Errorf("runSubs with failing stdout: exit %d, want 1", code)
+	}
+	if code := runReplay(fixtureSources, fw, &errOut); code != 1 {
+		t.Errorf("runReplay with failing stdout: exit %d, want 1", code)
 	}
 }

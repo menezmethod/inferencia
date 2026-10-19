@@ -111,6 +111,20 @@ func (c *reportCmd) month() string {
 	return time.Now().UTC().Format("2006-01")
 }
 
+type errWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (e *errWriter) Write(p []byte) (int, error) {
+	if e.err != nil {
+		return 0, e.err
+	}
+	var n int
+	n, e.err = e.w.Write(p)
+	return n, e.err
+}
+
 func flush(tw *tabwriter.Writer, name string, stderr io.Writer) bool {
 	if err := tw.Flush(); err != nil {
 		_, _ = fmt.Fprintf(stderr, "%s: %v\n", name, err)
@@ -183,14 +197,18 @@ func runSavings(args []string, stdout, stderr io.Writer) int {
 	if !flush(tw, "savings", stderr) {
 		return 1
 	}
-	_, _ = fmt.Fprintf(stdout, "\nAll dollars are estimates at catalog list prices (as of %s), not bills; plan usage is priced as if paid per token.\n", cat.AsOf)
-	_, _ = fmt.Fprintln(stdout, "HARNESS $ is the harness's own price table; where it differs from AS RUN $, the two price tables disagree.")
-	_, _ = fmt.Fprintf(stdout, "Alternatives keep the same token split; the range is an assumed ±%.0f%% tokenizer difference, not measured.\n", catalog.TokenizerBand*100)
-	_, _ = fmt.Fprintln(stdout, "Anthropic states its newer tokenizer yields about 30% more tokens for the same text, so moving work onto those models can cost more than the range.")
+	ew := &errWriter{w: stdout}
+	_, _ = fmt.Fprintf(ew, "\nAll dollars are estimates at catalog list prices (as of %s), not bills; plan usage is priced as if paid per token.\n", cat.AsOf)
+	_, _ = fmt.Fprintln(ew, "HARNESS $ is the harness's own price table; where it differs from AS RUN $, the two price tables disagree.")
+	_, _ = fmt.Fprintf(ew, "Alternatives keep the same token split; the range is an assumed ±%.0f%% tokenizer difference, not measured.\n", catalog.TokenizerBand*100)
+	_, _ = fmt.Fprintln(ew, "Anthropic states its newer tokenizer yields about 30% more tokens for the same text, so moving work onto those models can cost more than the range.")
 	if picked {
-		_, _ = fmt.Fprintln(stdout, "The alternatives were picked as the cheapest per tier on this same usage, so these are best cases, and quality is not considered.")
+		_, _ = fmt.Fprintln(ew, "The alternatives were picked as the cheapest per tier on this same usage, so these are best cases, and quality is not considered.")
 	}
-	writeUnpriced(stdout, unpriced)
+	writeUnpriced(ew, unpriced)
+	if ew.err != nil {
+		return 1
+	}
 	return 0
 }
 
@@ -221,11 +239,15 @@ func runSubs(args []string, stdout, stderr io.Writer) int {
 	if !flush(tw, "subs", stderr) {
 		return 1
 	}
-	_, _ = fmt.Fprintf(stdout, "\nAPI-equivalent $ prices the plan's tokens at catalog list prices (as of %s). A ratio of 5.0x means the plan\n"+
+	ew := &errWriter{w: stdout}
+	_, _ = fmt.Fprintf(ew, "\nAPI-equivalent $ prices the plan's tokens at catalog list prices (as of %s). A ratio of 5.0x means the plan\n"+
 		"delivered five times its price in per-token value. Which tier you hold is not in the logs, so every tier is shown.\n"+
 		"claude: Claude Code transcripts do not say whether a call billed to a plan or an API key; read it as \"if on a plan\".\n"+
 		"Max is listed only as \"from $100\"; a higher Max tier lowers its ratio. A (partial) month is compared with a full month's price.\n", cat.AsOf)
-	writeUnpriced(stdout, unpriced)
+	writeUnpriced(ew, unpriced)
+	if ew.err != nil {
+		return 1
+	}
 	return 0
 }
 
@@ -329,12 +351,16 @@ func runReplay(args []string, stdout, stderr io.Writer) int {
 	if !flush(tw, "replay", stderr) {
 		return 1
 	}
-	_, _ = fmt.Fprintf(stdout, "\nEstimates at catalog list prices (as of %s); no model was called. Policies keep each call's token split.\n", cat.AsOf)
-	_, _ = fmt.Fprintf(stdout, "Every policy runs on the same %d calls; %d calls that cannot be priced as run are excluded from all of them.\n", len(us), excluded.Calls)
-	_, _ = fmt.Fprintln(stdout, "A switch means a call ran on a different model than the call before it in the same session; it pays a")
-	_, _ = fmt.Fprintln(stdout, "cache write for what the old model had cached (CACHE LOSS $). Subagent sessions are separate, so moving them never switches.")
-	_, _ = fmt.Fprintln(stdout, "Subscription-first assumes every plan-covered call fit inside its plan's quota, so it is a lower bound on cost.")
-	_, _ = fmt.Fprintln(stdout, "Quality is not modeled: a cheaper policy is only worth it if E3 shows its accept rate holds.")
+	ew := &errWriter{w: stdout}
+	_, _ = fmt.Fprintf(ew, "\nEstimates at catalog list prices (as of %s); no model was called. Policies keep each call's token split.\n", cat.AsOf)
+	_, _ = fmt.Fprintf(ew, "Every policy runs on the same %d calls; %d calls that cannot be priced as run are excluded from all of them.\n", len(us), excluded.Calls)
+	_, _ = fmt.Fprintln(ew, "A switch means a call ran on a different model than the call before it in the same session; it pays a")
+	_, _ = fmt.Fprintln(ew, "cache write for what the old model had cached (CACHE LOSS $). Subagent sessions are separate, so moving them never switches.")
+	_, _ = fmt.Fprintln(ew, "Subscription-first assumes every plan-covered call fit inside its plan's quota, so it is a lower bound on cost.")
+	_, _ = fmt.Fprintln(ew, "Quality is not modeled: a cheaper policy is only worth it if E3 shows its accept rate holds.")
+	if ew.err != nil {
+		return 1
+	}
 	return 0
 }
 
