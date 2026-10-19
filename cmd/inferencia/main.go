@@ -22,6 +22,20 @@ import (
 )
 
 func main() {
+	// Subcommands run and exit; with none, the binary serves the gateway.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "measure":
+			os.Exit(runMeasure(os.Args[2:], os.Stdout, os.Stderr))
+		case "savings":
+			os.Exit(runSavings(os.Args[2:], os.Stdout, os.Stderr))
+		case "subs":
+			os.Exit(runSubs(os.Args[2:], os.Stdout, os.Stderr))
+		case "replay":
+			os.Exit(runReplay(os.Args[2:], os.Stdout, os.Stderr))
+		}
+	}
+
 	configPath := flag.String("config", "", "path to config.yaml (optional, env vars work without it)")
 	flag.Parse()
 
@@ -67,8 +81,8 @@ func main() {
 	for _, t := range cfg.TTSBackends {
 		ttsBackend := backend.NewTTSHTTP(t.Name, t.URL, t.Timeout)
 		ttsRouter.Register(router.BackendInfo{
-			Name:       t.Name,
-			TTSBackend: ttsBackend,
+			Name:         t.Name,
+			TTSBackend:   ttsBackend,
 			Capabilities: []router.Capability{router.CapTTS},
 			Models: []router.ModelInfo{
 				{ID: t.Name, Kind: router.CapTTS},

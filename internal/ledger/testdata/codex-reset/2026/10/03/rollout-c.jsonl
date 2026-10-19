@@ -1,0 +1,5 @@
+{"timestamp":"2026-10-03T00:00:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":99999,"cached_input_tokens":0,"output_tokens":999}}}}
+{"timestamp":"2026-10-03T00:00:01Z","type":"session_meta","payload":{"id":"sess-c","model_provider":"openai","source":"cli"}}
+{"timestamp":"2026-10-03T00:00:02Z","type":"turn_context","payload":{"model":"gpt-reset"}}
+{"timestamp":"2026-10-03T01:00:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"cached_input_tokens":900,"output_tokens":40}}}}
+{"timestamp":"2026-10-03T02:00:00Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":100,"cached_input_tokens":50,"output_tokens":5}}}}

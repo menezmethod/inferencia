@@ -1,0 +1,26 @@
+# GitLab CI for inferencia (mirrors the GitHub Actions "Build & test" job).
+image: golang:1.26
+
+stages: [test]
+
+cache:
+  key: go-mod-$CI_COMMIT_REF_SLUG
+  paths:
+    - .go-cache/
+variables:
+  GOFLAGS: "-mod=readonly"
+  GOCACHE: $CI_PROJECT_DIR/.go-cache/build
+  GOMODCACHE: $CI_PROJECT_DIR/.go-cache/mod
+
+build-and-test:
+  stage: test
+  script:
+    - cp docs/openapi.yaml internal/openapi/spec.yaml
+    - go build ./...
+    - go vet ./...
+    - go test -race -count=1 -coverprofile=coverage.out ./...
+    - go tool cover -func=coverage.out | tail -1
+  coverage: '/total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"

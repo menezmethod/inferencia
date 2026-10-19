@@ -23,7 +23,7 @@ var _ = Describe("Registry", func() {
 		It("registers a BackendInfo and retrieves it by name", func() {
 			reg := NewRegistry()
 			info := BackendInfo{
-				Name: "test-backend",
+				Name:         "test-backend",
 				Capabilities: []Capability{CapChat, CapEmbed},
 				Models: []ModelInfo{
 					{ID: "llama3", Provider: "ollama", Kind: CapChat},
@@ -270,8 +270,8 @@ type mockTTSBackend struct {
 	name string
 }
 
-func (m *mockTTSBackend) Name() string                                       { return m.name }
-func (m *mockTTSBackend) Health(ctx context.Context) error                    { return nil }
+func (m *mockTTSBackend) Name() string                     { return m.name }
+func (m *mockTTSBackend) Health(ctx context.Context) error { return nil }
 func (m *mockTTSBackend) Synthesize(ctx context.Context, req backend.TTSRequest) (*backend.TTSResponse, error) {
 	return &backend.TTSResponse{Audio: []byte{}, Format: "audio/wav"}, nil
 }

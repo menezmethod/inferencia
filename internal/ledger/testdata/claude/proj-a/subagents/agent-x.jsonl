@@ -1,0 +1,1 @@
+{"type":"assistant","sessionId":"s1","isSidechain":false,"timestamp":"2026-09-12T00:00:10Z","message":{"id":"msg_E","model":"claude-sonnet-test","usage":{"input_tokens":4,"cache_read_input_tokens":40,"output_tokens":2}}}

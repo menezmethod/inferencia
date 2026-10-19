@@ -32,7 +32,7 @@ func (c Capability) String() string {
 // BackendInfo describes a registered backend and its capabilities.
 type BackendInfo struct {
 	Name         string
-	Backend      backend.Backend   // chat/embed capable (may be nil)
+	Backend      backend.Backend    // chat/embed capable (may be nil)
 	TTSBackend   backend.TTSBackend // TTS capable (may be nil)
 	Capabilities []Capability
 	Models       []ModelInfo
@@ -47,7 +47,7 @@ type ModelInfo struct {
 
 // ModelRoute maps a model name to a backend and capability.
 type ModelRoute struct {
-	Model      string
-	Capability Capability
+	Model       string
+	Capability  Capability
 	BackendName string
 }

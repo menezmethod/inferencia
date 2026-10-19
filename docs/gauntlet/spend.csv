@@ -1,0 +1,4 @@
+time,provider,model,tokens,usd,experiment
+2026-10-17,command-code provider (cc-delegate workers),deepseek-v4-1-flash,19869726,1.65,E3a pilot arm C (31 tasks; estimate at catalog list price)
+2026-10-17,command-code provider (cc-delegate workers),deepseek-v4-1-flash,unknown,unknown,E3a first pilot run (11 tasks; lost with the scratchpad; smaller than the row above)
+2026-10-17,command-code provider (cc-delegate workers),deepseek-v4-1-flash,unknown,unknown,E3 smoke runs (T01 and T31 arm C; a few cents)

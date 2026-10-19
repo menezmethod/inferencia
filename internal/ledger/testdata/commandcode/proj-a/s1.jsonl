@@ -1,0 +1,4 @@
+{"type":"message","id":"a","timestamp":"2026-10-01T00:00:00Z","model":"deepseek/test","usage":{"inputTokens":1000,"outputTokens":10,"cacheReadTokens":900,"cacheWriteTokens":0,"costUsd":0.01}}
+{"type":"message","id":"b","timestamp":"2026-10-01T00:00:01Z","model":"deepseek/test"}
+{"type":"message","id":"c","timestamp":"2026-10-07T00:00:00Z","model":"deepseek/test","usage":{"inputTokens":5,"outputTokens":5,"cacheReadTokens":0,"cacheWriteTokens":0,"costUsd":0.5}}
+{broken

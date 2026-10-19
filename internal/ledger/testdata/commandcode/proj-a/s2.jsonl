@@ -1,0 +1,1 @@
+{"type":"message","id":"d","timestamp":"2026-10-02T00:00:00+02:00","model":"odd/test","usage":{"inputTokens":10,"outputTokens":1,"cacheReadTokens":40,"cacheWriteTokens":0}}
