@@ -33,3 +33,4 @@ Thumbs.db
 __pycache__/
 *.bak
 keys.txt.bak
+deploy/tts-servers/venv/

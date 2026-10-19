@@ -115,6 +115,9 @@ class TTSRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    # Load at startup so /health is accurate after a reboot; lazy init left
+    # the backend "unavailable" until some client happened to hit /v1/models.
+    _ensure_pipeline()
     yield
     logger.info("Shutting down Kokoro TTS server")
 
