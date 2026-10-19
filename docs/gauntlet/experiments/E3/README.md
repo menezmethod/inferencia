@@ -12,7 +12,7 @@ against a solo frontier model (arm A) without lowering the accept rate.
 - Arms run through the official `claude -p` under the user's Claude plan, in a random order, one at a
   time ([run_arm.sh](run_arm.sh), [run_pilot.sh](run_pilot.sh)).
 - Isolation: Claude Code's OS sandbox for shell commands, `sandbox-exec` for cc-delegate, no network, a
-  leak check; verified by a live probe ([review](../../evidence/E3-harness-review.md)).
+  leak check; verified by a live probe ([review](../../evidence/E3-harness-review.md)). The harness is macOS-only (sandbox-exec, Claude Code sandbox).
 - Grading: the commit's whole test tree restored, then `go build ./...`, the task's packages and the
   regression set.
 - Cost: the client's API-equivalent `total_cost_usd`, plus worker tokens from cc-delegate's dispatch
