@@ -49,10 +49,9 @@ the way (commit 4473f88: equal-load round-robin was not round-robin).
 
 ## Open items (your call)
 
-1. Merged to main via PR #68 at c27b17c.
-2. E1, ledger vs a real bill: skipped for lack of a key. Export `OPENROUTER_API_KEY` and rerun it.
-3. Raise Claude Code's `cleanupPeriodDays`: it deletes old transcripts, so ledger history disappears.
-4. Next experiment worth running: a live main-loop model swap with the E3 harness (gpt-6-astra vs
+1. E1, ledger vs a real bill: skipped for lack of a key. Export `OPENROUTER_API_KEY` and rerun it.
+2. Raise Claude Code's `cleanupPeriodDays`: it deletes old transcripts, so ledger history disappears.
+3. Next experiment worth running: a live main-loop model swap with the E3 harness (gpt-6-astra vs
    claude-opus-5-5 vs a strong-tier model), to check whether the 0.76x saving holds at equal quality.
 
 Loose end: the first pilot run (11 tasks) was lost to an app restart; the full rerun replaced it, and
