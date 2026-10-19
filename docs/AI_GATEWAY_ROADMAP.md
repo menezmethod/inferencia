@@ -13,7 +13,7 @@ Internet (Cloudflare)
     │
     ▼ LAN (192.168.0.0/24)
     │
-    ▼ Mac M4 Max (192.168.0.109) — 128GB RAM
+    ▼ Mac M4 Max (100.82.231.99) — 128GB RAM
     │
     ├── ollama (:11434) — launchd, RUNNING
     ├── kokoro-tts (:50051) — launchd, NEW
@@ -109,23 +109,23 @@ scrape_configs:
   - job_name: 'kokoro-tts'
     scrape_interval: 15s
     static_configs:
-      - targets: ['192.168.0.109:50051']
+      - targets: ['100.82.231.99:50051']
   - job_name: 'chatterbox-tts'
     static_configs:
-      - targets: ['192.168.0.109:50052']
+      - targets: ['100.82.231.99:50052']
 ```
 
 ## inferencia Env Vars
 
 ```ini
 # Current
-INFERENCIA_BACKEND_URL=http://192.168.0.109:11434
+INFERENCIA_BACKEND_URL=http://100.82.231.99:11434
 INFERENCIA_API_KEYS=sk-...
 
 # New - TTS backend addresses
-INFERENCIA_KOKORO_URL=http://192.168.0.109:50051
-INFERENCIA_CHATTERBOX_URL=http://192.168.0.109:50052
-INFERENCIA_MISOTTS_URL=http://192.168.0.109:50053
+INFERENCIA_KOKORO_URL=http://100.82.231.99:50051
+INFERENCIA_CHATTERBOX_URL=http://100.82.231.99:50052
+INFERENCIA_MISOTTS_URL=http://100.82.231.99:50053
 
 # Watchdog
 INFERENCIA_WATCHDOG_INTERVAL=30s

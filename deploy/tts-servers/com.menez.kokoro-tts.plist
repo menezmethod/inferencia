@@ -24,13 +24,13 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/python3</string>
-        <string>/Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers/kokoro_server.py</string>
+        <string>__REPO__/deploy/tts-servers/venv/bin/python</string>
+        <string>__REPO__/deploy/tts-servers/kokoro_server.py</string>
     </array>
 
     <!-- Working directory -->
     <key>WorkingDirectory</key>
-    <string>/Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers</string>
+    <string>__REPO__/deploy/tts-servers</string>
 
     <!-- Environment -->
     <key>EnvironmentVariables</key>
@@ -38,16 +38,16 @@
         <key>PORT</key>
         <string>50051</string>
         <key>HOST</key>
-        <string>127.0.0.1</string>
+        <string>0.0.0.0</string>
         <key>PYTHONUNBUFFERED</key>
         <string>1</string>
     </dict>
 
     <!-- Logs -->
     <key>StandardOutPath</key>
-    <string>/Users/luisgimenez/Library/Logs/kokoro-tts/stdout.log</string>
+    <string>__HOME__/Library/Logs/kokoro-tts/stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/luisgimenez/Library/Logs/kokoro-tts/stderr.log</string>
+    <string>__HOME__/Library/Logs/kokoro-tts/stderr.log</string>
 
     <!-- Rotate logs (10 files × 5 MB) -->
     <key>StandardOutDataSize</key>

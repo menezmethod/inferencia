@@ -1,17 +1,17 @@
 # Kokoro TTS Server
 
-Production-ready HTTP server wrapping [Kokoro](https://github.com/remsky/Kokoro-FastAPI) TTS as an OpenAI-compatible API. Designed to run 24/7 on the Mac Mini M4 Max (`192.168.0.109`) and serve TTS requests from **inferencia** (Go binary on Raspberry Pi 5) over LAN.
+Production-ready HTTP server wrapping [Kokoro](https://github.com/remsky/Kokoro-FastAPI) TTS as an OpenAI-compatible API. Designed to run 24/7 on the Mac M4 Max (Tailscale `100.82.231.99`) and serve TTS requests from **inferencia** (Go binary on Raspberry Pi 5) over Tailscale.
 
 ## Architecture
 
 ```
  Pi5 (inferencia)  ──HTTP──►  Mac M4 Max (kokoro-server)
- 192.168.0.108                 192.168.0.109:50051
+ 100.100.46.29                 100.82.231.99:50051
 ```
 
 - inferencia connects via HTTP — **not** a subprocess call.
-- The server listens on `127.0.0.1:50051` by default (localhost only for security).
-- To expose to LAN, set `HOST=0.0.0.0` in the environment or edit the plist.
+- The server listens on `127.0.0.1:50051` by default. The launchd plist sets `HOST=0.0.0.0` so the Pi can reach it over Tailscale.
+- Build the venv with a Python the macOS firewall already allows incoming, or macOS silently drops the Pi's connections.
 
 ## Files
 
@@ -27,7 +27,7 @@ Production-ready HTTP server wrapping [Kokoro](https://github.com/remsky/Kokoro-
 ### 1. Install dependencies
 
 ```bash
-cd /Users/luisgimenez/Development/04-infrastructure/llm-local-proxy/inferencia/deploy/tts-servers
+cd deploy/tts-servers
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
@@ -65,7 +65,9 @@ curl http://127.0.0.1:50051/metrics
 # Create log directory
 mkdir -p ~/Library/Logs/kokoro-tts
 
-# Load the service
+# Fill in the paths (run from the repo root) and load the service
+sed -e "s|__REPO__|$PWD|g" -e "s|__HOME__|$HOME|g" deploy/tts-servers/com.menez.kokoro-tts.plist \
+  > ~/Library/LaunchAgents/com.menez.kokoro-tts.plist
 launchctl load ~/Library/LaunchAgents/com.menez.kokoro-tts.plist
 
 # Check status
