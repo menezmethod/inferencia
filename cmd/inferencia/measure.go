@@ -32,7 +32,7 @@ type reportCmd struct {
 func newReportCmd(name string, withCatalog bool, stderr io.Writer) *reportCmd {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Fprintf(stderr, "%s: warning: no home directory (%v); pass each source flag explicitly\n", name, err)
+		_, _ = fmt.Fprintf(stderr, "%s: warning: no home directory (%v); pass each source flag explicitly\n", name, err)
 	}
 	def := ledger.DefaultSources(home)
 	c := &reportCmd{fs: flag.NewFlagSet(name, flag.ContinueOnError), stderr: stderr}
@@ -60,25 +60,25 @@ func (c *reportCmd) load(args []string) (us []ledger.Usage, code int, ok bool) {
 		return nil, 2, false
 	}
 	if c.fs.NArg() > 0 {
-		fmt.Fprintf(c.stderr, "%s: unexpected argument %q\n", name, c.fs.Arg(0))
+		_, _ = fmt.Fprintf(c.stderr, "%s: unexpected argument %q\n", name, c.fs.Arg(0))
 		return nil, 2, false
 	}
 	var w ledger.Window
 	var err error
 	if w.Since, err = parseBound(*c.since, false); err != nil {
-		fmt.Fprintf(c.stderr, "%s: --since: %v\n", name, err)
+		_, _ = fmt.Fprintf(c.stderr, "%s: --since: %v\n", name, err)
 		return nil, 2, false
 	}
 	if w.Until, err = parseBound(*c.until, true); err != nil {
-		fmt.Fprintf(c.stderr, "%s: --until: %v\n", name, err)
+		_, _ = fmt.Fprintf(c.stderr, "%s: --until: %v\n", name, err)
 		return nil, 2, false
 	}
 	us, warns, loaded := ledger.Load(c.src, w)
 	for _, e := range warns {
-		fmt.Fprintf(c.stderr, "%s: warning: %v\n", name, e)
+		_, _ = fmt.Fprintf(c.stderr, "%s: warning: %v\n", name, e)
 	}
 	if loaded == 0 {
-		fmt.Fprintf(c.stderr, "%s: no source could be read\n", name)
+		_, _ = fmt.Fprintf(c.stderr, "%s: no source could be read\n", name)
 		return nil, 1, false
 	}
 	return us, 0, true
@@ -96,7 +96,7 @@ func (c *reportCmd) loadPriced(args []string) (us []ledger.Usage, cat *catalog.C
 		cat, err = catalog.Load(*c.catalogPath)
 	}
 	if err != nil {
-		fmt.Fprintf(c.stderr, "%s: %v\n", c.fs.Name(), err)
+		_, _ = fmt.Fprintf(c.stderr, "%s: %v\n", c.fs.Name(), err)
 		return nil, nil, 1, false
 	}
 	return us, cat, 0, true
@@ -113,7 +113,7 @@ func (c *reportCmd) month() string {
 
 func flush(tw *tabwriter.Writer, name string, stderr io.Writer) bool {
 	if err := tw.Flush(); err != nil {
-		fmt.Fprintf(stderr, "%s: %v\n", name, err)
+		_, _ = fmt.Fprintf(stderr, "%s: %v\n", name, err)
 		return false
 	}
 	return true
@@ -127,7 +127,7 @@ func runMeasure(args []string, stdout, stderr io.Writer) int {
 		return code
 	}
 	if err := ledger.WriteReport(stdout, us); err != nil {
-		fmt.Fprintf(stderr, "measure: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "measure: %v\n", err)
 		return 1
 	}
 	return 0
@@ -149,7 +149,7 @@ func runSavings(args []string, stdout, stderr io.Writer) int {
 	}
 	lines, unpriced, err := cat.Savings(us, alts)
 	if err != nil {
-		fmt.Fprintf(stderr, "savings: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "savings: %v\n", err)
 		return 1
 	}
 
@@ -158,7 +158,7 @@ func runSavings(args []string, stdout, stderr io.Writer) int {
 	for _, a := range alts {
 		head += "AS " + a + " $\t"
 	}
-	fmt.Fprintln(tw, head)
+	_, _ = fmt.Fprintln(tw, head)
 	var total float64
 	totalAs := map[string]float64{}
 	for _, l := range lines {
@@ -172,23 +172,23 @@ func runSavings(args []string, stdout, stderr io.Writer) int {
 			totalAs[a] += l.As[a]
 		}
 		total += l.Actual
-		fmt.Fprintln(tw, row)
+		_, _ = fmt.Fprintln(tw, row)
 	}
 	row := fmt.Sprintf("all\t\t\t\t\t\t%.2f\t", total)
 	for _, a := range alts {
 		lo, hi := totalAs[a]*(1-catalog.TokenizerBand), totalAs[a]*(1+catalog.TokenizerBand)
 		row += fmt.Sprintf("%.2f (%.2f-%.2f)\t", totalAs[a], lo, hi)
 	}
-	fmt.Fprintln(tw, row)
+	_, _ = fmt.Fprintln(tw, row)
 	if !flush(tw, "savings", stderr) {
 		return 1
 	}
-	fmt.Fprintf(stdout, "\nAll dollars are estimates at catalog list prices (as of %s), not bills; plan usage is priced as if paid per token.\n", cat.AsOf)
-	fmt.Fprintln(stdout, "HARNESS $ is the harness's own price table; where it differs from AS RUN $, the two price tables disagree.")
-	fmt.Fprintf(stdout, "Alternatives keep the same token split; the range is an assumed ±%.0f%% tokenizer difference, not measured.\n", catalog.TokenizerBand*100)
-	fmt.Fprintln(stdout, "Anthropic states its newer tokenizer yields about 30% more tokens for the same text, so moving work onto those models can cost more than the range.")
+	_, _ = fmt.Fprintf(stdout, "\nAll dollars are estimates at catalog list prices (as of %s), not bills; plan usage is priced as if paid per token.\n", cat.AsOf)
+	_, _ = fmt.Fprintln(stdout, "HARNESS $ is the harness's own price table; where it differs from AS RUN $, the two price tables disagree.")
+	_, _ = fmt.Fprintf(stdout, "Alternatives keep the same token split; the range is an assumed ±%.0f%% tokenizer difference, not measured.\n", catalog.TokenizerBand*100)
+	_, _ = fmt.Fprintln(stdout, "Anthropic states its newer tokenizer yields about 30% more tokens for the same text, so moving work onto those models can cost more than the range.")
 	if picked {
-		fmt.Fprintln(stdout, "The alternatives were picked as the cheapest per tier on this same usage, so these are best cases, and quality is not considered.")
+		_, _ = fmt.Fprintln(stdout, "The alternatives were picked as the cheapest per tier on this same usage, so these are best cases, and quality is not considered.")
 	}
 	writeUnpriced(stdout, unpriced)
 	return 0
@@ -204,24 +204,24 @@ func runSubs(args []string, stdout, stderr io.Writer) int {
 	}
 	pms, unpriced, err := cat.Subs(us)
 	if err != nil {
-		fmt.Fprintf(stderr, "subs: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "subs: %v\n", err)
 		return 1
 	}
 	tw := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(tw, "PLAN\tMONTH\tCALLS\tINPUT\tCACHE READ\tAPI-EQUIVALENT $\tVALUE PER $ PAID, BY TIER\t")
+	_, _ = fmt.Fprintln(tw, "PLAN\tMONTH\tCALLS\tINPUT\tCACHE READ\tAPI-EQUIVALENT $\tVALUE PER $ PAID, BY TIER\t")
 	current := cmd.month()
 	for _, pm := range pms {
 		month := pm.Month
 		if month == current {
 			month += " (partial)"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%.1f%%\t%.2f\t%s\t\n", pm.Plan.ID, month, pm.Totals.Calls, pm.Totals.AllInput(),
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%d\t%d\t%.1f%%\t%.2f\t%s\t\n", pm.Plan.ID, month, pm.Totals.Calls, pm.Totals.AllInput(),
 			pm.Totals.CacheShare()*100, pm.Value, tierRatios(pm))
 	}
 	if !flush(tw, "subs", stderr) {
 		return 1
 	}
-	fmt.Fprintf(stdout, "\nAPI-equivalent $ prices the plan's tokens at catalog list prices (as of %s). A ratio of 5.0x means the plan\n"+
+	_, _ = fmt.Fprintf(stdout, "\nAPI-equivalent $ prices the plan's tokens at catalog list prices (as of %s). A ratio of 5.0x means the plan\n"+
 		"delivered five times its price in per-token value. Which tier you hold is not in the logs, so every tier is shown.\n"+
 		"claude: Claude Code transcripts do not say whether a call billed to a plan or an API key; read it as \"if on a plan\".\n"+
 		"Max is listed only as \"from $100\"; a higher Max tier lowers its ratio. A (partial) month is compared with a full month's price.\n", cat.AsOf)
@@ -254,7 +254,7 @@ func runReplay(args []string, stdout, stderr io.Writer) int {
 	}
 	for _, id := range []string{*strong, *fast} {
 		if _, err := cat.Lookup(id); id != "" && err != nil {
-			fmt.Fprintf(stderr, "replay: %v\n", err) // a typo must not print a $0 policy
+			_, _ = fmt.Fprintf(stderr, "replay: %v\n", err) // a typo must not print a $0 policy
 			return 1
 		}
 	}
@@ -280,29 +280,29 @@ func runReplay(args []string, stdout, stderr io.Writer) int {
 		{fmt.Sprintf("naive per call (<%dk -> %s, else %s)", *threshold/1000, *fast, *strong), replay.NaivePerCall(*threshold, *fast, *strong), []string{*fast, *strong}},
 	}
 	tw := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(tw, "POLICY\tEST $\tVS AS-RUN\tSWITCHES\tCACHE LOSS $\tUNPRICED CALLS\t")
+	_, _ = fmt.Fprintln(tw, "POLICY\tEST $\tVS AS-RUN\tSWITCHES\tCACHE LOSS $\tUNPRICED CALLS\t")
 	// UNPRICED CALLS counts calls a policy moved onto a model with no usable price.
 	var base float64
 	for _, pol := range policies {
 		if slices.Contains(pol.need, "") {
-			fmt.Fprintf(tw, "%s\t-\t-\t-\t-\t-\t\n", pol.name)
+			_, _ = fmt.Fprintf(tw, "%s\t-\t-\t-\t-\t-\t\n", pol.name)
 			continue
 		}
 		r, err := replay.Run(cat, us, pol.name, pol.p)
 		if err != nil {
-			fmt.Fprintf(stderr, "replay: %s: %v\n", pol.name, err)
+			_, _ = fmt.Fprintf(stderr, "replay: %s: %v\n", pol.name, err)
 			return 1
 		}
 		if pol.name == "as-run" {
 			base = r.USD
 		}
-		fmt.Fprintf(tw, "%s\t%.2f\t%s\t%d\t%.2f\t%d\t\n", pol.name, r.USD, ratio(r.USD, base), r.Switches, r.CacheLossUSD, r.Unpriced.Calls)
+		_, _ = fmt.Fprintf(tw, "%s\t%.2f\t%s\t%d\t%.2f\t%d\t\n", pol.name, r.USD, ratio(r.USD, base), r.Switches, r.CacheLossUSD, r.Unpriced.Calls)
 	}
 
 	// Subscription-first: plan-covered usage costs its plan fee, the rest pays per token.
 	pms, _, err := cat.Subs(us)
 	if err != nil {
-		fmt.Fprintf(stderr, "replay: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "replay: %v\n", err)
 		return 1
 	}
 	var feeLow, feeHigh float64
@@ -321,20 +321,20 @@ func runReplay(args []string, stdout, stderr io.Writer) int {
 	}
 	r, err := replay.Run(cat, rest, "rest", replay.AsRun)
 	if err != nil {
-		fmt.Fprintf(stderr, "replay: %v\n", err)
+		_, _ = fmt.Fprintf(stderr, "replay: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(tw, "subscription-first (plan fees, lowest-highest tier, + per-token rest)\t%.2f-%.2f\t%s-%s\t0\t0.00\t%d\t\n",
+	_, _ = fmt.Fprintf(tw, "subscription-first (plan fees, lowest-highest tier, + per-token rest)\t%.2f-%.2f\t%s-%s\t0\t0.00\t%d\t\n",
 		feeLow+r.USD, feeHigh+r.USD, ratio(feeLow+r.USD, base), ratio(feeHigh+r.USD, base), r.Unpriced.Calls)
 	if !flush(tw, "replay", stderr) {
 		return 1
 	}
-	fmt.Fprintf(stdout, "\nEstimates at catalog list prices (as of %s); no model was called. Policies keep each call's token split.\n", cat.AsOf)
-	fmt.Fprintf(stdout, "Every policy runs on the same %d calls; %d calls that cannot be priced as run are excluded from all of them.\n", len(us), excluded.Calls)
-	fmt.Fprintln(stdout, "A switch means a call ran on a different model than the call before it in the same session; it pays a")
-	fmt.Fprintln(stdout, "cache write for what the old model had cached (CACHE LOSS $). Subagent sessions are separate, so moving them never switches.")
-	fmt.Fprintln(stdout, "Subscription-first assumes every plan-covered call fit inside its plan's quota, so it is a lower bound on cost.")
-	fmt.Fprintln(stdout, "Quality is not modeled: a cheaper policy is only worth it if E3 shows its accept rate holds.")
+	_, _ = fmt.Fprintf(stdout, "\nEstimates at catalog list prices (as of %s); no model was called. Policies keep each call's token split.\n", cat.AsOf)
+	_, _ = fmt.Fprintf(stdout, "Every policy runs on the same %d calls; %d calls that cannot be priced as run are excluded from all of them.\n", len(us), excluded.Calls)
+	_, _ = fmt.Fprintln(stdout, "A switch means a call ran on a different model than the call before it in the same session; it pays a")
+	_, _ = fmt.Fprintln(stdout, "cache write for what the old model had cached (CACHE LOSS $). Subagent sessions are separate, so moving them never switches.")
+	_, _ = fmt.Fprintln(stdout, "Subscription-first assumes every plan-covered call fit inside its plan's quota, so it is a lower bound on cost.")
+	_, _ = fmt.Fprintln(stdout, "Quality is not modeled: a cheaper policy is only worth it if E3 shows its accept rate holds.")
 	return 0
 }
 
@@ -367,10 +367,10 @@ func writeUnpriced(w io.Writer, unpriced catalog.Unpriced) {
 		names = append(names, n)
 	}
 	slices.Sort(names)
-	fmt.Fprintln(w, "\nUNPRICED (excluded from the dollars above, never counted as $0):")
+	_, _ = fmt.Fprintln(w, "\nUNPRICED (excluded from the dollars above, never counted as $0):")
 	for _, n := range names {
 		t := unpriced[n]
-		fmt.Fprintf(w, "  %s: %d calls, %d input tokens, %d output tokens\n", n, t.Calls, t.AllInput(), t.Output)
+		_, _ = fmt.Fprintf(w, "  %s: %d calls, %d input tokens, %d output tokens\n", n, t.Calls, t.AllInput(), t.Output)
 	}
 }
 

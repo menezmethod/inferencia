@@ -93,9 +93,9 @@ func WriteReport(out io.Writer, us []Usage) error {
 
 	tw := tabwriter.NewWriter(out, 0, 4, 2, ' ', tabwriter.AlignRight)
 	const cols = "CALLS\tINPUT\tCACHE READ\tOUTPUT\tHARNESS $\t"
-	fmt.Fprintln(tw, "HARNESS\tUPSTREAM\tMODEL\tBILLING\tDELEGATED\t"+cols)
+	_, _ = fmt.Fprintln(tw, "HARNESS\tUPSTREAM\tMODEL\tBILLING\tDELEGATED\t"+cols)
 	for _, k := range keys {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%t\t%s\n", clean(k.Harness), clean(k.Upstream), clean(k.Model), k.Billing, k.Delegated, row(groups[k]))
+		_, _ = fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%t\t%s\n", clean(k.Harness), clean(k.Upstream), clean(k.Model), k.Billing, k.Delegated, row(groups[k]))
 	}
 
 	var solo, delegated []Usage
@@ -108,21 +108,21 @@ func WriteReport(out io.Writer, us []Usage) error {
 		}
 		byHarness[u.Harness] = append(byHarness[u.Harness], u)
 	}
-	fmt.Fprintln(tw, "\t\t\t\t\t\t\t\t\t\t")
-	fmt.Fprintln(tw, "SPLIT\t\t\t\t\t"+cols)
-	fmt.Fprintf(tw, "solo\t\t\t\t\t%s\n", row(Sum(solo)))
-	fmt.Fprintf(tw, "delegated\t\t\t\t\t%s\n", row(Sum(delegated)))
-	fmt.Fprintln(tw, "\t\t\t\t\t\t\t\t\t\t")
-	fmt.Fprintln(tw, "HARNESS TOTAL\t\t\t\t\t"+cols)
+	_, _ = fmt.Fprintln(tw, "\t\t\t\t\t\t\t\t\t\t")
+	_, _ = fmt.Fprintln(tw, "SPLIT\t\t\t\t\t"+cols)
+	_, _ = fmt.Fprintf(tw, "solo\t\t\t\t\t%s\n", row(Sum(solo)))
+	_, _ = fmt.Fprintf(tw, "delegated\t\t\t\t\t%s\n", row(Sum(delegated)))
+	_, _ = fmt.Fprintln(tw, "\t\t\t\t\t\t\t\t\t\t")
+	_, _ = fmt.Fprintln(tw, "HARNESS TOTAL\t\t\t\t\t"+cols)
 	names := make([]string, 0, len(byHarness))
 	for n := range byHarness {
 		names = append(names, n)
 	}
 	slices.Sort(names)
 	for _, n := range names {
-		fmt.Fprintf(tw, "%s\t\t\t\t\t%s\n", clean(n), row(Sum(byHarness[n])))
+		_, _ = fmt.Fprintf(tw, "%s\t\t\t\t\t%s\n", clean(n), row(Sum(byHarness[n])))
 	}
-	fmt.Fprintf(tw, "all\t\t\t\t\t%s\n", row(Sum(us)))
+	_, _ = fmt.Fprintf(tw, "all\t\t\t\t\t%s\n", row(Sum(us)))
 	if err := tw.Flush(); err != nil {
 		return err
 	}
