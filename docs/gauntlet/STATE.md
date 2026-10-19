@@ -1,6 +1,6 @@
 # Gauntlet state
 
-Branch: `gauntlet/v4`. Budget: $25.00. Spent: about $1.65 estimated, plus two small unrecorded smoke and lost-run amounts (see [spend.csv](spend.csv)).
+Merged to main via PR #68 at c27b17c. Budget: $25.00. Spent: about $1.65 estimated, plus two small unrecorded smoke and lost-run amounts (see [spend.csv](spend.csv)).
 Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKIPPED-GATE.
 
 ## S0 Setup
