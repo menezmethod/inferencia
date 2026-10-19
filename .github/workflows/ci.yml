@@ -167,8 +167,8 @@ jobs:
             exit 0
           fi
           if [ -n "$TOKEN" ]; then
-            curl -sf -X GET "$WEBHOOK" -H "Authorization: Bearer $TOKEN"
+            curl -sf -X POST "$WEBHOOK" -H "Authorization: Bearer $TOKEN"
           else
-            curl -sf -X GET "$WEBHOOK"
+            curl -sf -X POST "$WEBHOOK"
           fi
           echo "Coolify deploy webhook triggered"
