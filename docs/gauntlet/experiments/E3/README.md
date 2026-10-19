@@ -20,7 +20,7 @@ against a solo frontier model (arm A) without lowering the accept rate.
 - Quota guard: stop at 60% of the plan's 7-day window. The run ended at 21%.
 
 Reproduce: `build_suite.sh <dir> candidates.tsv`, then `run_pilot.sh <dir> <dir>/pilot.csv`, then
-`reparse.sh` and `analyze.py`. Results: [results/pilot.csv](results/pilot.csv).
+`reparse.sh` and `analyze.py`. `build_suite.sh` needs `REPOS_ROOT` set to a folder holding the repos named in `candidates.tsv`; for `private-repo-b`, symlink that name to the real private repo. Results: [results/pilot.csv](results/pilot.csv).
 
 **Result.** See [GATE1.md](../../GATE1.md). C matched A on quality (90% vs 87%, non-inferior at 10
 points) and on cost ($0.86 vs $0.86 per accepted task; ratio 1.01, 95% CI 0.84-1.17). B equaled A,
