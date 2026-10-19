@@ -53,7 +53,7 @@ func OpenCode(dbPath string, w Window) ([]Usage, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := os.Stat(abs); err != nil {
+	if _, err = os.Stat(abs); err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
