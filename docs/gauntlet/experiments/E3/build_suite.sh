@@ -8,7 +8,7 @@
 # commit three runs in a row (to drop flaky tasks).
 #
 # Usage: build_suite.sh <workdir> <candidates.tsv>
-#   candidates.tsv columns: repo_path <TAB> commit
+#   candidates.tsv columns: repo_name <TAB> commit (repo_name resolved under REPOS_ROOT env var)
 # Output: <workdir>/suite.tsv with: id repo commit parent packages verdict regress
 #   regress = import paths of every package whose tests pass at the commit; grading
 #   requires them all to still pass, so an agent cannot break other packages.
@@ -51,8 +51,9 @@ while IFS=$'\t' read -r repo commit; do
   [[ -z "$repo" || "$repo" == \#* ]] && continue
   n=$((n + 1))
   id=$(printf 'T%02d' "$n")
-  clone="$workdir/repos/$(basename "$repo")"
-  [[ -d "$clone" ]] || git clone --quiet --no-local --no-checkout "$repo" "$clone"
+  repo_src="${REPOS_ROOT:?REPOS_ROOT env var must be set}/$repo"
+  clone="$workdir/repos/$repo"
+  [[ -d "$clone" ]] || git clone --quiet --no-local --no-checkout "$repo_src" "$clone"
   repo=$clone
   parent=$(git -C "$repo" rev-parse "$commit^")
   files=$(spec_files "$repo" "$parent" "$commit")

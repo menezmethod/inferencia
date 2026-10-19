@@ -4,7 +4,7 @@
 against a solo frontier model (arm A) without lowering the accept rate.
 
 **Method.**
-- Suite: 31 feature commits from the user's own repos (inferencia, parrish_api), validated by
+- Suite: 31 feature commits from the user's own repos (inferencia and one private repo), validated by
   [build_suite.sh](build_suite.sh): the commit's tests fail at the parent and pass at the commit 3 runs
   in a row ([suite.tsv](suite.tsv)).
 - Each task starts as the parent's files in a fresh repo with no history; the commit's test files and
