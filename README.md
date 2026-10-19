@@ -32,7 +32,9 @@ docker compose up -d
 ## 💸 Cost commands
 
 Read-only reports from the logs your coding harnesses already write (Claude Code, Codex CLI,
-OpenCode, Command Code). No gateway, no network, nothing written.
+OpenCode, Command Code). No gateway, no network, nothing written. Note: `measure`, `savings`,
+`subs`, and `replay` are host-side tools (the Docker image has no `sqlite3`, so OpenCode is
+skipped there).
 
 ```bash
 go run ./cmd/inferencia measure --since 2026-10-01   # spend by harness, upstream and model; cache share; solo vs delegated

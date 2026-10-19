@@ -64,7 +64,7 @@ func Run(c *catalog.Catalog, us []ledger.Usage, name string, p Policy) (Result, 
 			return Result{}, err
 		}
 		run := u.Model
-		if rm, err := c.Lookup(u.Model); err == nil {
+		if rm, lookErr := c.Lookup(u.Model); lookErr == nil {
 			run = rm.ID
 		}
 		base, _ := m.CostAs(u)

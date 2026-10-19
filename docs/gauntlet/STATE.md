@@ -1,6 +1,6 @@
 # Gauntlet state
 
-Branch: `gauntlet/v4`. Budget: $25.00. Spent: about $1.65 estimated, plus two small unrecorded smoke and lost-run amounts (see [spend.csv](spend.csv)).
+Merged to main via PR #68 at c27b17c. Budget: $25.00. Spent: about $1.65 estimated, plus two small unrecorded smoke and lost-run amounts (see [spend.csv](spend.csv)).
 Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKIPPED-GATE.
 
 ## S0 Setup
@@ -86,6 +86,6 @@ Statuses: TODO, IN-PROGRESS, DONE, BLOCKED, SKIPPED-BUDGET, SKIPPED-NO-BILL, SKI
 - 2026-10-17: E3 suite: 30 valid tasks. E4 done: user is on OpenCode Go $10 (Kimi cap hit at $15.05); $10.73 avoidable per-token spend found.
 - 2026-10-17: F7: router round-robin bug (map order) fixed, 4473f88.
 - 2026-10-17: E3 harness hardened after review (3 blockers, 8 majors fixed); live isolation probe passed; pilot started. D6 (tests visible), D7 (Claude plan quota signal).
-- 2026-10-17: App restart wiped the session scratchpad; the first pilot run (11 of 31 tasks) and its results were lost. Interim read on 8 tasks before the loss: all arms 100% accepted; $/accepted vs A: B 1.16x, C 1.28x; B never used its subagent model. Pilot relaunched in /private/tmp/inferencia-e3 with results copied to experiments/E3/results/pilot.csv after every task.
+- 2026-10-17: App restart wiped the session scratchpad; the first pilot run (11 of 31 tasks) and its results were lost. Interim read on 8 tasks before the loss: all arms 100% accepted; $/accepted vs A: B 1.16x, C 1.28x; B never used its subagent model. Pilot relaunched in <workdir> with results copied to experiments/E3/results/pilot.csv after every task.
 - 2026-10-17: E3 pilot complete (31 tasks, 7-day plan use 21%). Gate 1 FAIL: delegation matched solo on quality (non-inferior) and cost (1.01x, upper bound 1.15); config routing had no effect. S4/S5 skipped. Doing S6.
 - 2026-10-17: S6 done after an accuracy review (no wrong numbers; overclaims softened, missing S6 items added). Worker spend recorded in spend.csv (rule 3 had been missed for E3 workers). Gauntlet complete.

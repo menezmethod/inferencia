@@ -1,8 +1,9 @@
 package router
 
 import (
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 	"sync"
 
 	"github.com/menezmethod/inferencia/internal/backend"
@@ -88,7 +89,7 @@ func (r *Registry) BackendsByCapability(kind Capability) []BackendInfo {
 	}
 	// Map order changes per call; a stable order lets the load balancer's
 	// round-robin alternate between equally loaded backends.
-	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	slices.SortFunc(result, func(a, b BackendInfo) int { return cmp.Compare(a.Name, b.Name) })
 	return result
 }
 

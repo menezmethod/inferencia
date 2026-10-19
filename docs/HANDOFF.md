@@ -4,8 +4,7 @@ Start here: read [EDUCATION.md](EDUCATION.md) (about 10 minutes). It explains th
 
 ## Where things are
 
-- Branch `gauntlet/v4`: 26 commits ahead of `main`, local only, never pushed. On purpose: `main`
-  auto-deploys to the Pi.
+- Merged to main via PR #68 at c27b17c.
 - Working tree clean, except an untracked `.commandcode/` that is not part of this work.
 - Plan doc: [Inferencia v4 plan](https://claude.ai/code/artifact/a64e4f3e-d3c3-44c1-8395-074617297e52)
   (opens with the outcome); repo copy in [PLAN_V4.md](PLAN_V4.md).
@@ -50,11 +49,9 @@ the way (commit 4473f88: equal-load round-robin was not round-robin).
 
 ## Open items (your call)
 
-1. Push or merge: nothing is pushed. To share it, push `gauntlet/v4` and open a PR; never push to
-   `main` directly.
-2. E1, ledger vs a real bill: skipped for lack of a key. Export `OPENROUTER_API_KEY` and rerun it.
-3. Raise Claude Code's `cleanupPeriodDays`: it deletes old transcripts, so ledger history disappears.
-4. Next experiment worth running: a live main-loop model swap with the E3 harness (gpt-6-astra vs
+1. E1, ledger vs a real bill: skipped for lack of a key. Export `OPENROUTER_API_KEY` and rerun it.
+2. Raise Claude Code's `cleanupPeriodDays`: it deletes old transcripts, so ledger history disappears.
+3. Next experiment worth running: a live main-loop model swap with the E3 harness (gpt-6-astra vs
    claude-opus-5-5 vs a strong-tier model), to check whether the 0.76x saving holds at equal quality.
 
 Loose end: the first pilot run (11 tasks) was lost to an app restart; the full rerun replaced it, and
