@@ -18,10 +18,15 @@ var fixtureSources = []string{
 	"--catalog", "testdata/catalog.yaml",
 }
 
-type failWriter struct{}
+type failOnFootnoteWriter struct {
+	buf bytes.Buffer
+}
 
-func (failWriter) Write(p []byte) (int, error) {
-	return 0, io.ErrClosedPipe
+func (f *failOnFootnoteWriter) Write(p []byte) (int, error) {
+	if bytes.Contains(p, []byte("list prices")) {
+		return 0, io.ErrClosedPipe
+	}
+	return f.buf.Write(p)
 }
 
 var _ = Describe("Measure", func() {
@@ -148,11 +153,30 @@ var _ = Describe("Replay", func() {
 })
 
 var _ = Describe("Footnote writer failure", func() {
-	It("exits 1 on stdout footnote write failures", func() {
+	It("exits 1 on stdout footnote write failures in savings", func() {
 		var errOut bytes.Buffer
-		fw := failWriter{}
-		Expect(runSavings(append([]string{"--as", "cheap-test"}, fixtureSources...), fw, &errOut)).To(Equal(1))
-		Expect(runSubs(fixtureSources, fw, &errOut)).To(Equal(1))
-		Expect(runReplay(fixtureSources, fw, &errOut)).To(Equal(1))
+		w := &failOnFootnoteWriter{}
+		code := runSavings(append([]string{"--as", "cheap-test"}, fixtureSources...), w, &errOut)
+		Expect(code).To(Equal(1))
+		Expect(w.buf.String()).To(ContainSubstring("HARNESS"))
+		Expect(errOut.String()).To(ContainSubstring("savings: write stdout:"))
+	})
+
+	It("exits 1 on stdout footnote write failures in subs", func() {
+		var errOut bytes.Buffer
+		w := &failOnFootnoteWriter{}
+		code := runSubs(fixtureSources, w, &errOut)
+		Expect(code).To(Equal(1))
+		Expect(w.buf.String()).To(ContainSubstring("PLAN"))
+		Expect(errOut.String()).To(ContainSubstring("subs: write stdout:"))
+	})
+
+	It("exits 1 on stdout footnote write failures in replay", func() {
+		var errOut bytes.Buffer
+		w := &failOnFootnoteWriter{}
+		code := runReplay(fixtureSources, w, &errOut)
+		Expect(code).To(Equal(1))
+		Expect(w.buf.String()).To(ContainSubstring("POLICY"))
+		Expect(errOut.String()).To(ContainSubstring("replay: write stdout:"))
 	})
 })

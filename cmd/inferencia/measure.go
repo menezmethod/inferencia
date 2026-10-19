@@ -207,6 +207,7 @@ func runSavings(args []string, stdout, stderr io.Writer) int {
 	}
 	writeUnpriced(ew, unpriced)
 	if ew.err != nil {
+		_, _ = fmt.Fprintf(stderr, "savings: write stdout: %v\n", ew.err)
 		return 1
 	}
 	return 0
@@ -246,6 +247,7 @@ func runSubs(args []string, stdout, stderr io.Writer) int {
 		"Max is listed only as \"from $100\"; a higher Max tier lowers its ratio. A (partial) month is compared with a full month's price.\n", cat.AsOf)
 	writeUnpriced(ew, unpriced)
 	if ew.err != nil {
+		_, _ = fmt.Fprintf(stderr, "subs: write stdout: %v\n", ew.err)
 		return 1
 	}
 	return 0
@@ -359,6 +361,7 @@ func runReplay(args []string, stdout, stderr io.Writer) int {
 	_, _ = fmt.Fprintln(ew, "Subscription-first assumes every plan-covered call fit inside its plan's quota, so it is a lower bound on cost.")
 	_, _ = fmt.Fprintln(ew, "Quality is not modeled: a cheaper policy is only worth it if E3 shows its accept rate holds.")
 	if ew.err != nil {
+		_, _ = fmt.Fprintf(stderr, "replay: write stdout: %v\n", ew.err)
 		return 1
 	}
 	return 0
