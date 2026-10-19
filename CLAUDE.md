@@ -13,12 +13,12 @@ Internet → Cloudflare Tunnel → Pi5:80 → Traefik → inferencia:8080
                             ↓                                                         ↓
                    Ollama (:11434)                            Kokoro (:50051) / Chatterbox (:50052)
                    (chat, embed)                                       (TTS)
-                   Mac M4 Max — 192.168.0.109
+                   Mac M4 Max — 100.82.231.99
 ```
 
 - **Raspberry Pi 5** — Runs only inferencia (Go binary). No ML models.
 - **Mac M4 Max (128 GB)** — All ML compute: Ollama (`:11434`), Kokoro TTS (`:50051`), Chatterbox TTS (`:50052`).
-- All backend communication is over local LAN. Pi 5 is the only machine exposed to the internet.
+- All backend communication is over Tailscale (Mac `100.82.231.99`). Do not use LAN IPs: DHCP changes them. Pi 5 is the only machine exposed to the internet.
 
 ## Key Conventions
 
@@ -145,9 +145,9 @@ Returns **200** if all services healthy, **503** if any service is degraded.
 ```
 INFERENCIA_HOST=0.0.0.0
 INFERENCIA_PORT=8080
-INFERENCIA_BACKEND_URL=http://192.168.0.109:11434
-INFERENCIA_KOKORO_URL=http://192.168.0.109:50051
-INFERENCIA_CHATTERBOX_URL=http://192.168.0.109:50052
+INFERENCIA_BACKEND_URL=http://100.82.231.99:11434
+INFERENCIA_KOKORO_URL=http://100.82.231.99:50051
+INFERENCIA_CHATTERBOX_URL=http://100.82.231.99:50052
 INFERENCIA_API_KEYS=sk-...
 ```
 

@@ -509,9 +509,9 @@ Internet → Cloudflare Tunnel → Pi5:80 → Traefik → inferencia:8080
                             ↓                                                         ↓
                    Ollama (:11434)                            Kokoro (:50051) / Chatterbox (:50052)
                    (chat, embed)                                       (TTS)
-                   Mac M4 Max — 192.168.0.109
+                   Mac M4 Max — 100.82.231.99
 ```
 
 - **Raspberry Pi 5** — Runs only inferencia (Go binary, ~20 MB). No ML models.
 - **Mac M4 Max (128 GB)** — All ML models: Ollama (`:11434`), Kokoro TTS (`:50051`), Chatterbox TTS (`:50052`).
-- All backend communication is over the local LAN.
+- All backend communication is over Tailscale (Mac `100.82.231.99`), not LAN IPs.
