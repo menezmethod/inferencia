@@ -44,7 +44,7 @@ go run ./cmd/inferencia replay                        # recorded sessions re-pri
 ```
 
 Prices live in [internal/catalog/catalog.yaml](internal/catalog/catalog.yaml), each with a source
-URL; an unknown model is reported, never priced at $0. See [docs/EDUCATION.md](docs/EDUCATION.md).
+URL; an unknown model is reported, never priced at $0. 
 
 ## 🏗️ Architecture
 
@@ -64,8 +64,7 @@ Luis designed and operates the CI/CD pipeline for this repo: every PR runs the f
 
 ## 📚 Documentation
 
-- [PRD](./PRD.md) — Product Requirements Document
-- [Architecture (RICO)](./RICO.md) — Architecture decision records
-- [OpenAPI Spec](./api/openapi.yaml) — API documentation
+- [Routing evaluation](./eval/README.md) — The objective, the gates and the routing matrix. Start here
+- [OpenAPI Spec](./docs/openapi.yaml) — API documentation
 - [AGENTS.md](./AGENTS.md) — Agent instructions
-- [ROADMAP.md](./ROADMAP.md) — Development roadmap
+- [docs/archive/](./docs/archive/) — Old plans (v4 and earlier), replaced by the routing evaluation

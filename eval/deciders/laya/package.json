@@ -1,0 +1,12 @@
+{
+  "name": "inferencia-eval-laya",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@receptron/laya": "0.2.0"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -34,3 +34,9 @@ __pycache__/
 *.bak
 keys.txt.bak
 deploy/tts-servers/venv/
+
+# eval: Laya decider dependencies
+eval/deciders/laya/node_modules/
+
+# eval: prompts of private tasks never go in the repo
+eval/results/features.jsonl
