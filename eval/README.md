@@ -127,6 +127,17 @@ interval narrower than about +/-0.15 is not expected; the gates use bounds, not 
 
 On the Mac. The steps and checks are in [matrix/RUN.md](matrix/RUN.md).
 
+## Observations before the matrix (no outcome data)
+
+2026-10-22, Laya 0.2.0 on the 16 public task prompts, on a cloud CPU (not the Mac):
+
+- The API works as frozen. Latency per decision: 3.6-9.1 s. G3 needs <= 1 s at p95, so the
+  G3 number must come from the Mac run.
+- `fast_ok` is 0.63-0.80 on 15 of 16 tasks (0.29 on T01). At the 0.5 threshold, Laya starts
+  15 of 16 tasks at the fast tier, so it may behave almost like cascade-visible. `tier` says
+  "strong" on 13 of 16 of the same tasks. The questions stay frozen; the threshold sweep shows
+  whether another threshold helps.
+
 ## Changes after freeze
 
 None.
