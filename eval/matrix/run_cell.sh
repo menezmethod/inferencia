@@ -6,7 +6,9 @@
 #   Run it from a copy of this directory, never from the repo, so an edit to the
 #   repo cannot change a script while it runs.
 #
-# This is E3's run_arm.sh arm A with one change: the model is a parameter.
+# This is E3's run_arm.sh arm A with two changes, both recorded in eval/README.md:
+# the model is a parameter, and every model slot (subagents, background calls) is
+# pinned to the cell's model.
 # Every model runs in the same harness (Claude Code, same prompt, tools, sandbox,
 # turn limit and time limit), so the model is the only difference between cells.
 #  - claude-* models use the user's Claude plan.
@@ -92,23 +94,28 @@ cat > "$profile" <<EOF
 EOF
 
 envs=(GOCACHE="$gocache" GOFLAGS=-mod=readonly GOPROXY=off GOTOOLCHAIN=local "PATH=$goroot/bin:$PATH")
+# Start from a clean model environment: an exported ANTHROPIC_* variable in the shell
+# (for example from cc-delegate) must not send a plan cell to the gateway or the API.
+clean=(-u ANTHROPIC_BASE_URL -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u ANTHROPIC_MODEL
+  -u ANTHROPIC_SMALL_FAST_MODEL -u ANTHROPIC_DEFAULT_OPUS_MODEL -u ANTHROPIC_DEFAULT_SONNET_MODEL
+  -u ANTHROPIC_DEFAULT_HAIKU_MODEL -u CLAUDE_CODE_SUBAGENT_MODEL -u CLAUDE_CODE_SUBAGENT_MODEL_FORCE)
 if [[ $via == gateway ]]; then
   [[ -r "$gateway_key_file" ]] || { echo "no gateway key at $gateway_key_file" >&2; exit 2; }
   a=$(alias_of "$model")
   # Every model slot points at the same alias, so no call in this cell reaches another model.
   envs+=("ANTHROPIC_BASE_URL=$gateway" "ANTHROPIC_AUTH_TOKEN=$(cat "$gateway_key_file")"
     "ANTHROPIC_MODEL=$a" "ANTHROPIC_DEFAULT_OPUS_MODEL=$a" "ANTHROPIC_DEFAULT_SONNET_MODEL=$a"
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL=$a" "CLAUDE_CODE_SUBAGENT_MODEL=$a" CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1)
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL=$a" "ANTHROPIC_SMALL_FAST_MODEL=$a" "CLAUDE_CODE_SUBAGENT_MODEL=$a")
   model_arg=$a
 else
   # Subagents and background calls stay on the cell's model too.
-  envs+=("CLAUDE_CODE_SUBAGENT_MODEL=$model" CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 "ANTHROPIC_DEFAULT_HAIKU_MODEL=$model")
+  envs+=("CLAUDE_CODE_SUBAGENT_MODEL=$model" "ANTHROPIC_DEFAULT_HAIKU_MODEL=$model" "ANTHROPIC_SMALL_FAST_MODEL=$model")
   model_arg=$model
 fi
 
 start=$(date +%s)
 set +e
-(cd "$run" && env "${envs[@]}" "$here/group_run.sh" "$limit_s" \
+(cd "$run" && env "${clean[@]}" "${envs[@]}" "$here/group_run.sh" "$limit_s" \
   claude -p "$prompt" --model "$model_arg" --output-format stream-json --verbose \
   --max-turns 80 --permission-mode acceptEdits --allowedTools "${tools[@]}" \
   --no-session-persistence --setting-sources project --settings "$settings" \

@@ -85,6 +85,22 @@ class Loading(unittest.TestCase):
         with self.assertRaises(M.DataError):
             M.load_matrix(p)
 
+    def test_invalid_run_is_an_error(self):
+        p = self.write("task,model,accepted,visible_pass,cost_usd,quota_hit,outside_paths,invalid\nT1,x,0,0,0.1,0,0,1\n")
+        with self.assertRaises(M.DataError):
+            M.load_matrix(p)
+
+    def test_missing_decider_latency_is_an_error(self):
+        p = self.write("decider,task,start_tier,p_fast,tier_choice,latency_ms,cost_usd\nlaya,T1,fast,0.6,strong,,0\n")
+        with self.assertRaises(M.DataError):
+            M.load_decisions([p])
+
+    def test_cost_check_mismatch_is_flagged(self):
+        p = self.write("task,model,accepted,visible_pass,cost_usd,cost_check,quota_hit,outside_paths,invalid\n"
+                       "T1,x,1,1,1.00,1.20,0,0,0\nT2,x,1,1,1.00,1.02,0,0,0\n")
+        _, flags = M.load_matrix(p)
+        self.assertEqual(flags["cost check differs by more than 5%"], ["T1/x"])
+
     def test_incomplete_and_leaky_tasks_are_excluded(self):
         flags = M.defaultdict(list)
         cells = {"T1": task((1, 0.01), (1, 0.3), (1, 1.0)), "T2": {OPUS: cell(1, 1.0)},

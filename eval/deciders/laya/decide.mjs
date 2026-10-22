@@ -4,6 +4,8 @@
 // Usage: node decide.mjs < features.jsonl > decisions-laya.csv
 // Runs locally (ONNX Runtime, CPU). The first run downloads about 1.7 GB of weights.
 import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { Laya } from "@receptron/laya";
 
 const THRESHOLD = 0.5;
@@ -48,11 +50,12 @@ async function main() {
     const r = await laya.systemOne(state(f), QUESTIONS);
     const ms = performance.now() - t0;
     const a = r.answers;
+    // cost_usd is 0: Laya runs on the local CPU and calls no paid API (eval/README.md section 5).
     console.log(["laya", f.task, startTier(a), a.fast_ok.noul.toFixed(4), a.tier.choice, ms.toFixed(1), 0].join(","));
   }
   await laya.close();
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   await main();
 }

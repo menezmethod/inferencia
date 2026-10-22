@@ -23,22 +23,28 @@ Claude plan. Run every step in Terminal on the Mac.
     -d '{"model":"deepseek-v4-1-flash","max_tokens":16,"messages":[{"role":"user","content":"Say OK"}]}'
   ```
 
-## 2. Smoke test: one cell per gateway model
+## 2. Smoke test: one Haiku cell and one cell per gateway model
 
-Run this first. It costs a few cents. Read both rows before you continue.
+Run this first. It costs a few cents. Read all three rows before you continue.
 
 ```bash
 cd ~/code/inferencia            # your clone, on branch eval/routing-matrix
 rm -rf /tmp/evalrun && cp -R eval/matrix /tmp/evalrun
 W=~/eval-work                    # the E3 workdir
+/tmp/evalrun/run_cell.sh $W T01 claude-haiku-5-5 $W/smoke.csv
 /tmp/evalrun/run_cell.sh $W T01 deepseek-v4-1-flash $W/smoke.csv
 /tmp/evalrun/run_cell.sh $W T01 muse-spark-1.3-contributor $W/smoke.csv
 cat $W/smoke.csv
 ```
 
-Check for each row: `cost_source` is `model_usage` or `messages` (not `unpriced`), `models`
-names only that cell's model, and `outside_paths` is 0. If `models` names a Claude model, the
-gateway variables did not apply: stop and report it.
+Check for each row:
+
+- `invalid` is 0 and `cost_source` is `messages` (not `unpriced`).
+- `models` names only that cell's model. It comes from the model name in each response. If a
+  gateway row names a Claude model, the gateway variables did not apply: stop and report it.
+- `cost_usd` and `cost_check` agree within about 5%. For the Haiku row, this also checks that
+  the client applies Haiku's long-context price.
+- `outside_paths` is 0.
 
 ## 3. The full matrix
 
@@ -51,7 +57,8 @@ EVAL_PILOT_CSV=~/code/inferencia/docs/gauntlet/experiments/E3/results/pilot.csv 
 - It imports the Opus column from the E3 pilot, then runs the missing cells in a random model
   order per task. Rerun the same command after any stop; finished cells are skipped.
 - It stops at 60% of the 7-day Claude window, or at $10 of Command Code spend.
-- Expected: 4 models x 31 tasks (Muse on public tasks only), about 105 cells.
+- Expected: 3 models x 31 tasks, plus Muse on the 16 public tasks: 109 cells.
+- It stops on any invalid run (API or gateway error) and names the log to read. Fix the cause, then rerun.
 
 ## 4. Deciders
 
@@ -77,9 +84,9 @@ matrix) are on the bill but not in those logs, so name that gap with its size.
 
 ```bash
 cd ~/code/inferencia/eval/results
-cp $W/matrix.csv $W/decisions-*.csv $W/features.jsonl .
+cp $W/matrix.csv $W/decisions-*.csv .     # not features.jsonl: it holds private-repo commit messages
 python3 -I ../analysis/matrix.py matrix.csv ../../docs/gauntlet/experiments/E3/suite.tsv decisions-*.csv > report.md
 ```
 
-Commit `eval/results/` (aggregates only; the stream logs stay in `$W/logs`). Then the
+Commit `eval/results/` (task IDs and numbers only; the prompts and the stream logs stay in `$W`). Then the
 architecture plan is written from `report.md`.

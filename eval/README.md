@@ -13,12 +13,19 @@ Frozen in: this commit (branch `eval/routing-matrix`). Old plans: [docs/archive/
 
 ## 1. Objective
 
+- **Valid run:** the run reached the model's own end (done, turn limit or time limit). An API
+  or gateway error, a crash, or a plan limit is not a model failure: the row is removed and the
+  cell runs again.
 - **Accepted task:** after the run, the commit's whole test tree is restored, and
   `go build ./...`, the task's packages and the regression set pass. The model never sees the
   restored tests that it did not get as the spec. This is the hidden-test check.
 - **Cost:** API-equivalent cost of every model call that a policy makes for a task, from the
-  token counts in the run log, at the prices in `internal/catalog/catalog.yaml`. Cache reads and
-  cache writes are priced separately. A failed attempt that a cascade escalates from is paid in
+  usage of each response in the run log, at the prices in `internal/catalog/catalog.yaml`.
+  Cache reads, 5-minute writes and 1-hour writes are priced separately, and Haiku's
+  long-context price applies per request. A second figure is kept as a cross-check (the
+  client's own total for Claude, the client's per-model totals for gateway models); the report
+  flags a difference above 5%. The imported Opus rows use the client's total, which equals this
+  rule on all 31 rows. A failed attempt that a cascade escalates from is paid in
   full. A model with no catalog price makes the analysis fail. It is never priced at $0.
 - **Metric:** cost per accepted task (CPA) = total cost of the policy over all tasks / number of
   accepted tasks.
@@ -29,7 +36,7 @@ Frozen in: this commit (branch `eval/routing-matrix`). Old plans: [docs/archive/
 
 | Source | What it gives | Where |
 | --- | --- | --- |
-| E3 suite | 31 tasks from real commits (17 inferencia, 14 private repo), validated: tests fail at the parent and pass at the commit 3 times | `docs/gauntlet/experiments/E3/suite.tsv` |
+| E3 suite | 31 tasks from real commits (16 inferencia, 15 private repo), validated: tests fail at the parent and pass at the commit 3 times | `docs/gauntlet/experiments/E3/suite.tsv` |
 | E3 arm A rows | The Opus column (run 2026-10-17, same harness) | `docs/gauntlet/experiments/E3/results/pilot.csv` |
 | Matrix runs | Per task and model: accepted, visible-test pass, tokens, cost, seconds, full stream log | `eval/matrix/` (the logs stay on the Mac) |
 | Command Code dashboard | Requests and tokens per model for the billing month | Screenshot, 2026-10-22 (G4) |
@@ -46,7 +53,7 @@ when a key exists.
 | claude-sonnet-5-5 | strong | Claude plan | all 31 |
 | claude-haiku-5-5 | fast | Claude plan | all 31 |
 | deepseek-v4-1-flash | fast | Command Code via the local LiteLLM gateway | all 31 |
-| muse-spark-1.3-contributor | fast | Command Code via the local LiteLLM gateway | 17 public inferencia tasks only (the provider may train on prompts) |
+| muse-spark-1.3-contributor | fast | Command Code via the local LiteLLM gateway | 16 public inferencia tasks only (the provider may train on prompts) |
 
 Every model runs in the same harness: Claude Code (`claude -p`) with the same prompt, tools,
 sandbox, turn limit and time limit. Non-Claude models use `ANTHROPIC_BASE_URL` pointed at the
@@ -90,6 +97,13 @@ size of the visible spec files. It does not see the answer diff or any matrix re
 
 Start tier: fast if `fast_ok` >= 0.5, else the `tier` choice (never fast in that case). The 0.5
 threshold is the primary result. A sweep of the threshold is a secondary result (APGR curve).
+Laya runs on the local CPU, so its decision cost is $0; its RAM and latency count in G3.
+
+**APGR** (secondary): weak = always-fast, strong = always-Opus. For each threshold, cost share =
+(policy $ - weak $) / (strong $ - weak $) and PGR = (policy accept - weak accept) / (strong
+accept - weak accept). APGR is the area under PGR against cost share, with the two real
+policies always-weak (0, 0) and always-strong (1, 1) as end points. This uses dollars, not the
+share of calls, so it is not directly comparable with the RouteLLM paper.
 
 ## 6. Gates (pass/fail, fixed now)
 
@@ -122,6 +136,13 @@ interval narrower than about +/-0.15 is not expected; the gates use bounds, not 
 - The rules thresholds come from judgment, not from data. That is intentional: they are frozen
   before the data, so all 31 tasks are test data for them.
 - No held-out repo yet. A third repo is the next step if a decider passes G1.
+- Each cell is one sample. Run-to-run noise favors the oracle and cascade-hidden, because they
+  select the lucky runs.
+- In E3, arms A, B and C ran the same Opus prompt one after another, so arm A sometimes read a
+  cache that B had written (arm A has fewer cache writes than B on most tasks). This is a small
+  bias in favor of the Opus column.
+- In gateway cells, the agent's shell environment contains the local gateway key. The gateway
+  listens only on 127.0.0.1, and the sandbox has no network.
 
 ## 9. How to run
 
@@ -140,4 +161,8 @@ On the Mac. The steps and checks are in [matrix/RUN.md](matrix/RUN.md).
 
 ## Changes after freeze
 
-None.
+None. Before the first run, after an independent review (2026-10-22): API and gateway errors are
+now invalid runs, not model failures; plan cells start from a clean `ANTHROPIC_*` environment;
+every model slot (subagents, background calls) is pinned to the cell's model, which E3 arm A
+did not do (arm A used only Opus, so the effect on it is nil); the served model is read from
+each response; cost is the per-message rule for every cell; the task counts are corrected.

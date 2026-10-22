@@ -3,14 +3,16 @@
 Usage: python3 -I parse_cell.py <stream.jsonl> <task> <model> <accepted> <visible_pass> <secs> <exit> <run_dir>
        python3 -I parse_cell.py --header
 
-Cost (the same rule as E3, extended to non-Claude models):
-- claude-* cells: total_cost_usd from the stream's final "result" event, the official
-  client's API-equivalent figure. cost_tokens is the same run priced from its tokens at
-  the catalog, as a cross-check.
-- Gateway cells: the client prices unknown models wrongly, so its total is ignored. Cost
-  is the tokens in result.modelUsage (or, without a result event, the sum of the
-  assistant messages' usage) at the catalog prices below.
-- A model with no price makes cost empty. It is never 0. The analysis rejects empty costs.
+Cost (eval/README.md section 1): every cell is priced the same way, from the usage of each
+assistant message at the catalog prices below (with the 1-hour cache-write split and Haiku's
+long-context rule). cost_check is a second figure for a cross-check: the client's
+total_cost_usd for claude-* cells, and result.modelUsage at catalog prices for gateway cells
+(the client prices unknown models wrongly). A model with no price makes cost empty. It is
+never 0. The analysis rejects empty costs.
+
+invalid = 1 when the run did not reach the model's own end: an API or gateway error, no
+result event without a timeout, or an error after one turn. Such a row is not a model
+failure; run_matrix.sh removes it and stops.
 
 Other fields: quota_hit (a plan limit stopped the run; rerun it, it is not a quality
 failure), outside_paths (E3's leak check; a row with outside_paths > 0 needs review),
@@ -40,9 +42,10 @@ ALIASES = {
 # Haiku's long-context price applies per request above 100k prompt tokens.
 HAIKU_LONG = (100000, (0.50, 2.50, 0.05, 0.625, 1))
 
-FIELDS = ["task", "model", "accepted", "visible_pass", "secs", "exit", "turns", "cost_usd", "cost_tokens",
+FIELDS = ["task", "model", "accepted", "visible_pass", "secs", "exit", "turns", "cost_usd", "cost_check",
           "cost_source", "input", "cache_read", "cache_write", "output", "models", "quota_hit",
-          "outside_paths", "result"]
+          "outside_paths", "result", "invalid"]
+TIMEOUT_EXIT = "142"  # group_run.sh after the time limit: a real model failure
 PATH_RE = re.compile(r"(?<![\w.])(/(?:Users|private|tmp|var|opt|Volumes)/[^\s\"'`;|&)<>\\]*)")
 PATH_FIELDS = ("file_path", "path", "notebook_path", "command", "workdir", "cwd")
 
@@ -90,7 +93,8 @@ def main(argv):
     sensitive = [home, os.path.dirname(os.path.dirname(real))]
     result, by_msg, quota, leaks = {}, {}, 0, 0
     try:
-        lines = open(stream, errors="replace")
+        with open(stream, errors="replace") as f:
+            lines = f.readlines()
     except OSError:
         lines = []
     for line in lines:
@@ -120,26 +124,38 @@ def main(argv):
     model_usage = result.get("modelUsage") or {}
     priced_msgs = [price_message(m or model, u) for m, u in by_msg.values()]
     msg_cost = sum(priced_msgs) if priced_msgs and None not in priced_msgs else None
-    tokens_cost = price_model_usage(model_usage) if model_usage else msg_cost
-
-    if model.startswith("claude-") and result.get("total_cost_usd") is not None:
-        cost, source = result["total_cost_usd"], "client"
-    elif tokens_cost is not None:
-        cost, source = tokens_cost, ("model_usage" if model_usage else "messages")
+    if model.startswith("claude-"):
+        check = result.get("total_cost_usd")
+    else:
+        check = price_model_usage(model_usage) if model_usage else None
+    if msg_cost is not None:
+        cost, source = msg_cost, "messages"
     else:
         cost, source = "", "unpriced"
-    if "limit" in str(result.get("result", "")).lower() and result.get("is_error"):
+    text = str(result.get("result", "")).lower()
+    if "limit" in text and result.get("is_error"):
         quota = 1
 
-    u = result.get("usage") or {}
-    if not u or not model.startswith("claude-"):
-        u = {k: sum((v[1].get(k, 0) or 0) for v in by_msg.values()) for k in
-             ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")}
-    served = sorted({canon(m) for m in model_usage} or {canon(m) for m, _ in by_msg.values() if m})
-    row = [task, model, accepted, visible, secs, code, result.get("num_turns", ""), cost,
-           "" if tokens_cost is None else round(tokens_cost, 6), source,
-           u.get("input_tokens", ""), u.get("cache_read_input_tokens", ""), u.get("cache_creation_input_tokens", ""),
-           u.get("output_tokens", ""), "|".join(served), quota, leaks, result.get("subtype", "none")]
+    subtype = result.get("subtype", "none")
+    turns = result.get("num_turns", 0) or 0
+    invalid = 0
+    if not result and code != TIMEOUT_EXIT:
+        invalid = 1  # the client died before its end (API, gateway or crash)
+    elif result and subtype not in ("success", "error_max_turns"):
+        invalid = 1
+    elif result.get("is_error") and (turns <= 1 or "api error" in text):
+        invalid = 1  # an API or gateway error (auth, model name, 5xx, outage mid-run)
+    if quota:
+        invalid = 1
+
+    u = {k: sum((v[1].get(k, 0) or 0) for v in by_msg.values()) for k in
+         ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")}
+    # Served models come from each response's message.model, not from what the client asked for.
+    served = sorted({canon(m) for m, _ in by_msg.values() if m})
+    row = [task, model, accepted, visible, secs, code, result.get("num_turns", ""),
+           "" if cost == "" else round(cost, 6), "" if check is None else round(check, 6), source,
+           u["input_tokens"], u["cache_read_input_tokens"], u["cache_creation_input_tokens"],
+           u["output_tokens"], "|".join(served), quota, leaks, subtype, invalid]
     return ",".join(str(x) for x in row)
 
 

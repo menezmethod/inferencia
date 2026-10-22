@@ -131,7 +131,7 @@ models:
     price: {input: 0.091, output: 0.182, cache_read: 0.0182}
     source: *openrouter
   - id: deepseek-v4.1-flash
-    aliases: [deepseek/deepseek-v4.1-flash]
+    aliases: [deepseek/deepseek-v4.1-flash, deepseek-v4-1-flash]
     provider: deepseek
     tier: fast
     data_policy: unknown

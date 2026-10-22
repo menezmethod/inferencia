@@ -35,8 +35,11 @@ def load_matrix(path):
             flags["duplicate rows (last kept)"].append(f"{t}/{m}")
         if r["cost_usd"] == "":
             raise DataError(f"{t}/{m} has no cost; a missing cost is never 0. Fix the price, then reparse.")
-        if r.get("quota_hit") == "1":
-            raise DataError(f"{t}/{m} hit a plan limit; rerun the cell before analysis.")
+        if r.get("quota_hit") == "1" or r.get("invalid") == "1":
+            raise DataError(f"{t}/{m} is not a valid run (API error or plan limit); rerun the cell before analysis.")
+        check = r.get("cost_check") or ""
+        if check and abs(float(check) - float(r["cost_usd"])) > 0.05 * max(float(r["cost_usd"]), 1e-9):
+            flags["cost check differs by more than 5%"].append(f"{t}/{m}")
         cells[t][m] = {"acc": int(r["accepted"]), "vis": r["visible_pass"], "cost": float(r["cost_usd"]),
                        "leak": int(r.get("outside_paths") or 0)}
     return cells, flags
@@ -54,12 +57,14 @@ def load_decisions(paths):
         with open(p) as f:
             rows = list(csv.DictReader(f))
         for r in rows:
+            if r.get("latency_ms") in (None, "") or r.get("cost_usd") in (None, ""):
+                raise DataError(f"{p}: {r['task']} has no latency or cost; G3 cannot pass on a missing value")
             if r["start_tier"] not in TIER_INDEX:
                 raise DataError(f"{p}: unknown tier {r['start_tier']!r} for {r['task']}")
             out[r["decider"]][r["task"]] = {
                 "tier": r["start_tier"], "choice": r.get("tier_choice") or "",
                 "p": float(r["p_fast"]) if r.get("p_fast") not in (None, "") else None,
-                "ms": float(r.get("latency_ms") or 0), "cost": float(r.get("cost_usd") or 0)}
+                "ms": float(r["latency_ms"]), "cost": float(r["cost_usd"])}
     return out
 
 
@@ -303,7 +308,8 @@ def analyze(cells, suite, decisions, flags, boot=10000, seed=1):
                 pol = cascade(cells, tasks, decider_start(dec, k / 20), "vis")
                 curve.append(((sum(pol[t][0] for t in tasks) - sum(weak[t][0] for t in tasks)) / gap_cost,
                               (rate(pol, tasks) - rate(weak, tasks)) / gap_acc))
-            out.append(f"- {name}: APGR {apgr(curve):.2f} over 21 thresholds (0.50 is a random router).")
+            out.append(f"- {name}: APGR {apgr(curve):.2f} over 21 thresholds "
+                       f"(area under PGR vs dollar cost share; see eval/README.md section 6).")
     return "\n".join(out) + "\n"
 
 
