@@ -1,4 +1,4 @@
-.PHONY: build run test test-v test-coverage integration lint clean fmt vet openapi smoke-prod check-sensitive check-compose
+.PHONY: build run test eval-test test-v test-coverage integration lint clean fmt vet openapi smoke-prod check-sensitive check-compose
 
 BINARY := inferencia
 PKG    := ./...
@@ -30,6 +30,12 @@ test-coverage:
 lint: vet
 	@which golangci-lint > /dev/null 2>&1 || echo "Install golangci-lint: https://golangci-lint.run/usage/install/"
 	golangci-lint run $(PKG)
+
+# Routing evaluation: analysis, cell parser and decider unit tests (no network, no model).
+eval-test:
+	python3 -I -m unittest discover -s eval/analysis
+	python3 -I -m unittest discover -s eval/matrix
+	cd eval/deciders/laya && node --test decide.test.mjs
 
 vet:
 	go vet $(PKG)

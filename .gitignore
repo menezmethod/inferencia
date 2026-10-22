@@ -34,3 +34,6 @@ __pycache__/
 *.bak
 keys.txt.bak
 deploy/tts-servers/venv/
+
+# eval: Laya decider dependencies
+eval/deciders/laya/node_modules/
